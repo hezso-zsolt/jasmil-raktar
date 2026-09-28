@@ -6,6 +6,24 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.37.0 — Modernebb felület
+
+- **Hibajavítás:** a csak bizonyos helyzetben látható elemek eddig mindig
+  látszottak (pl. üres munkamenet-részletező a Leltár oldalon, üres
+  "Összekészítés" rész a Rendeléseknél, üres "Aktív doboz" és "Számolás
+  alatt" sáv az Elhelyezésnél, piros "0" jelvény a menüben). Mostantól
+  csak akkor jelennek meg, amikor kell.
+- **Frissebb megjelenés:** lekerekített kártyák finom árnyékkal,
+  egységes beviteli mezők (fókuszban narancs kerettel), visszafogottabb
+  menü-kiemelés, átláthatóbb táblázatfejlécek, nagyobb térköz a
+  szakaszok között.
+- A táblázatok soraiban a **Törlés** gomb mostantól csak piros szöveg,
+  keret nélkül, így nem vonja el a figyelmet (rámutatva kiemelődik).
+- **Mobilon** a táblázatok sorai kártyákká alakulnak, minden adat előtt
+  az oszlop nevével, így nem kell oldalra görgetni. A felső sáv a
+  menügombbal görgetéskor is látható marad.
+- A lezárt leltár-munkamenet állapota ékezettel, "lezárt" formában jelenik meg.
+
 ## 1.36.0 — Eltérő méret kiemelése az aktív dobozban
 
 - Az **Elhelyezés** nézet "Gyors tömeges elhelyezés (aktív doboz)" munka-
