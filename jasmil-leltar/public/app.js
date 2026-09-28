@@ -263,7 +263,7 @@ async function loadSessions() {
   sessions.forEach((s) => {
     const tr = el('tr', {}, [
       el('td', {}, s.name),
-      el('td', {}, el('span', { class: `tag ${s.status === 'nyitott' ? 'tag-ok' : 'tag-neutral'}` }, s.status)),
+      el('td', {}, el('span', { class: `tag ${s.status === 'nyitott' ? 'tag-ok' : 'tag-neutral'}` }, s.status === 'lezart' ? 'lezárt' : s.status)),
       el('td', { class: 'mono' }, s.created_at),
       el('td', { class: 'mono' }, s.closed_at || '—'),
       el('td', { class: 'row-actions' }, [
@@ -1212,7 +1212,7 @@ async function loadProducts() {
       },
     });
     tbody.appendChild(el('tr', {}, [
-      el('td', {}, checkbox),
+      el('td', { class: 'col-check' }, checkbox),
       el('td', { class: 'mono' }, String(idx + 1)),
       el('td', { class: 'mono' }, p.sku),
       el('td', { class: 'mono' }, p.ean || '—'),
@@ -2309,6 +2309,36 @@ async function updateOrdersBadge() {
     }
   } catch (e) { /* nem kritikus */ }
 }
+
+// ---------- Mobilos táblázat-címkék ----------
+// Keskeny kijelzőn a táblázat-sorok kártyákként jelennek meg (style.css),
+// ahol minden cella elé kiírjuk az oszlop nevét. Ehhez a cellák data-label
+// attribútumát a táblázat fejlécéből töltjük ki, bármikor változik a tartalom.
+function labelTableCells(table) {
+  const headers = Array.from(table.querySelectorAll('thead th')).map((th) => th.textContent.trim());
+  if (!headers.length) return;
+  table.querySelectorAll('tbody tr').forEach((tr) => {
+    let col = 0;
+    Array.from(tr.children).forEach((td) => {
+      if (!td.hasAttribute('colspan') && !td.hasAttribute('data-label')) td.setAttribute('data-label', headers[col] || '');
+      col += Number(td.getAttribute('colspan')) || 1;
+    });
+  });
+}
+document.querySelectorAll('table.table').forEach(labelTableCells);
+new MutationObserver((mutations) => {
+  const tables = new Set();
+  mutations.forEach((m) => {
+    const t = m.target.closest && m.target.closest('table.table');
+    if (t) tables.add(t);
+    m.addedNodes.forEach((n) => {
+      if (n.nodeType !== 1) return;
+      if (n.matches('table.table')) tables.add(n);
+      n.querySelectorAll('table.table').forEach((t) => tables.add(t));
+    });
+  });
+  tables.forEach(labelTableCells);
+}).observe(document.body, { childList: true, subtree: true });
 
 // ---------- Induláskor ----------
 showView('search');
