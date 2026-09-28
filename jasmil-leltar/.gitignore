@@ -1,0 +1,7 @@
+node_modules/
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+# Helyi adatok és titkok (Kvikk API-kulcs, extension token) – soha ne kerüljenek a repóba
+data/

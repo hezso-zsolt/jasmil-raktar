@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Jasmil — Leltár és raktárelhelyezés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div id="mobile-nav-backdrop"></div>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark">J</span>
+      <span class="brand-name">Jasmil<br><small>raktár <span id="app-version"></span></small></span>
+      <button class="sidebar-close" id="sidebar-close" aria-label="Menü bezárása">✕</button>
+    </div>
+    <nav class="nav">
+      <button class="nav-item active" data-view="search">
+        <svg viewBox="0 0 24 24"><path d="M11 4a7 7 0 1 0 4.9 12.1l4.5 4.5 1.4-1.4-4.5-4.5A7 7 0 0 0 11 4zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10z"/></svg>
+        Raktári keresés
+      </button>
+      <button class="nav-item" data-view="inventory">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16v4H4V4zm0 6h16v10H4V10zm3 2v2h4v-2H7z"/></svg>
+        Leltár / átvétel
+      </button>
+      <button class="nav-item" data-view="placement">
+        <svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4zm0 4l9 4 9-4v6l-9 4-9-4v-6z"/></svg>
+        Elhelyezés
+      </button>
+      <button class="nav-item" data-view="boxes">
+        <svg viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg>
+        Dobozok
+      </button>
+      <button class="nav-item" data-view="products">
+        <svg viewBox="0 0 24 24"><path d="M4 5h16v2H4V5zm0 6h16v2H4v-2zm0 6h10v2H4v-2z"/></svg>
+        Termékek
+      </button>
+      <button class="nav-item" data-view="watchlist">
+        <svg viewBox="0 0 24 24"><path d="M12 2l2.5 7.2H22l-6 4.5 2.3 7.3L12 16.5 5.7 21l2.3-7.3-6-4.5h7.5z"/></svg>
+        Termékfigyelő
+        <span id="watchlist-nav-badge" class="nav-badge hidden">0</span>
+      </button>
+      <button class="nav-item" data-view="orders">
+        <svg viewBox="0 0 24 24"><path d="M7 4h10l1 3H6l1-3zM5 9h14l-1 11H6L5 9zm4 3v6h2v-6H9zm4 0v6h2v-6h-2z"/></svg>
+        Rendelések
+        <span id="orders-nav-badge" class="nav-badge hidden">0</span>
+      </button>
+      <button class="nav-item" data-view="importexport">
+        <svg viewBox="0 0 24 24"><path d="M12 3l5 5h-3v6h-4V8H7l5-5zM5 19v-4H3v6h18v-6h-2v4H5z"/></svg>
+        Import / export
+      </button>
+      <button class="nav-item" data-view="kvikkstats">
+        <svg viewBox="0 0 24 24"><path d="M3 13h4v8H3v-8zm7-8h4v16h-4V5zm7 5h4v11h-4V10z"/></svg>
+        Kvikk statisztika
+        <span id="kvikk-nav-badge" class="nav-badge hidden">0</span>
+      </button>
+      <button class="nav-item" data-view="overview">
+        <svg viewBox="0 0 24 24"><path d="M4 20V10h3v10H4zm7 0V4h3v16h-3zm7 0v-7h3v7h-3z"/></svg>
+        Áttekintés
+      </button>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Menü megnyitása">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></svg>
+      </button>
+      <h1 id="view-title">Raktári keresés</h1>
+      <div id="toast-holder"></div>
+    </header>
+
+    <section class="view" id="view-search">
+      <div class="scan-panel">
+        <label for="search-scan">EAN vagy cikkszám beolvasása / megadása</label>
+        <div class="scan-input-row">
+          <input id="search-scan" class="scan-input" type="text" placeholder="Beolvasás vagy gépelés + Enter…" autocomplete="off" />
+          <button type="button" class="btn-camera" data-camera-target="search-scan" title="Beolvasás kamerával">
+            <svg viewBox="0 0 24 24"><path d="M9 3l-1.5 2H4a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-3.5L15 3H9zm3 6a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="search-result" class="result-panel empty">
+        <p class="hint">Olvass be egy vonalkódot, vagy add meg a cikkszámot a kereséshez.</p>
+      </div>
+    </section>
+
+    <section class="view hidden" id="view-inventory">
+      <div id="inventory-session-list">
+        <div class="panel-header">
+          <h2>Leltár-munkamenetek</h2>
+          <div class="inline-form">
+            <input id="new-session-name" type="text" placeholder="Munkamenet neve (pl. 2026-09 átvétel)" />
+            <button class="btn btn-primary" id="btn-new-session">+ Új munkamenet</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+<table class="table" id="sessions-table">
+          <thead><tr><th>Név</th><th>Állapot</th><th>Létrehozva</th><th>Lezárva</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+</div>
+      </div>
+
+      <div id="inventory-session-detail" class="hidden">
+        <button class="btn btn-ghost" id="btn-back-sessions">← Vissza a munkamenetekhez</button>
+        <div class="panel-header">
+          <h2 id="session-title"></h2>
+          <div class="inline-form">
+            <button class="btn btn-ghost" id="btn-export-session">Export CSV</button>
+            <button class="btn btn-danger-outline" id="btn-close-session">Munkamenet lezárása</button>
+          </div>
+        </div>
+
+        <div class="scan-panel">
+          <label for="inv-scan">Termék EAN / cikkszám beolvasása</label>
+          <div class="scan-input-row">
+            <input id="inv-scan" class="scan-input" type="text" placeholder="Beolvasás vagy gépelés + Enter…" autocomplete="off" />
+            <button type="button" class="btn-camera" data-camera-target="inv-scan" title="Beolvasás kamerával">
+              <svg viewBox="0 0 24 24"><path d="M9 3l-1.5 2H4a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-3.5L15 3H9zm3 6a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+            </button>
+          </div>
+          <div class="quick-actions">
+            <button class="btn btn-quick" data-qty="1">+1 db</button>
+            <button class="btn btn-quick" data-qty="10">+10 db</button>
+            <button class="btn btn-quick" data-qty="-1">−1 db</button>
+            <button class="btn btn-ghost" id="btn-undo">Utolsó visszavonása</button>
+          </div>
+        </div>
+
+        <div id="last-scanned" class="scan-feedback"></div>
+
+        <div class="filter-row">
+          <button class="chip active" data-filter="all">Összes</button>
+          <button class="chip" data-filter="nemellenorzott">Nem ellenőrzött</button>
+          <button class="chip" data-filter="ellenorzott">Eddig átvizsgált</button>
+          <button class="chip" data-filter="eltero">Eltérés van</button>
+          <button class="chip" data-filter="hiany">Hiány</button>
+          <button class="chip" data-filter="tobblet">Többlet</button>
+        </div>
+
+        <div class="table-wrap">
+<table class="table" id="inventory-items-table">
+          <thead><tr><th>#</th><th>SKU</th><th>EAN</th><th>Termék</th><th>Elméleti</th><th>Megszámolt</th><th>Eltérés</th><th>Ellenőrizve</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+</div>
+      </div>
+    </section>
+
+    <section class="view hidden" id="view-placement">
+      <div class="active-box-panel">
+        <h2>Gyors tömeges elhelyezés (aktív doboz)</h2>
+        <p class="hint">Válassz ki egy dobozt — utána csak a termékeket kell beolvasni, mindegyik automatikusan ebbe a dobozba kerül. Ideális, ha sok különböző terméket kell egyesével sok dobozba szétosztani.</p>
+
+        <div id="active-box-select-row" class="scan-panel">
+          <label for="active-box-input">Aktív doboz kiválasztása</label>
+          <div class="scan-input-row">
+            <input id="active-box-input" type="text" list="boxes-datalist" placeholder="Doboz beolvasása vagy megadása…" autocomplete="off" />
+            <button type="button" class="btn-camera" data-camera-target="active-box-input" title="Beolvasás kamerával">
+              <svg viewBox="0 0 24 24"><path d="M9 3l-1.5 2H4a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-3.5L15 3H9zm3 6a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+            </button>
+          </div>
+          <div id="active-box-select-feedback" class="scan-feedback"></div>
+        </div>
+
+        <div id="active-box-active" class="hidden">
+          <div class="active-box-badge">
+            <span>📦 Aktív doboz:</span>
+            <strong id="active-box-id-label"></strong>
+            <button class="btn btn-ghost btn-small" id="btn-close-active-box">Doboz lezárása</button>
+          </div>
+
+          <div class="scan-panel">
+            <label for="active-box-product">Termék beolvasása</label>
+            <div class="scan-input-row">
+              <input id="active-box-product" class="scan-input" type="text" placeholder="Vonalkód vagy cikkszám…" autocomplete="off" />
+              <button type="button" class="btn-camera" data-camera-target="active-box-product" title="Beolvasás kamerával">
+                <svg viewBox="0 0 24 24"><path d="M9 3l-1.5 2H4a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-3.5L15 3H9zm3 6a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+              </button>
+            </div>
+            <div class="quick-actions">
+              <button class="btn btn-ghost btn-small" id="btn-undo-active-box">Utolsó visszavonása</button>
+            </div>
+            <div id="active-box-scan-feedback" class="scan-feedback"></div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table" id="active-box-items-table">
+              <thead><tr><th>SKU</th><th>Termék</th><th>Mennyiség (ebben a munkamenetben)</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="active-box-panel" id="recount-panel">
+        <h2>Doboz újraszámolása (leltár-korrekció)</h2>
+        <p class="hint">Fizikailag kiveszed és újra megszámolod egy doboz teljes tartalmát. Számolás közben a nyilvántartott mennyiség nem látszik (vak számolás), csak lezáráskor — így nem "igazítasz hozzá" tudat alatt. Amíg tart, a doboz zárolva van: nem lehet bele elhelyezni vagy belőle kivenni.</p>
+
+        <div id="recount-select-row" class="scan-panel">
+          <label for="recount-box-input">Doboz kiválasztása</label>
+          <div class="scan-input-row">
+            <input id="recount-box-input" type="text" list="boxes-datalist" placeholder="Doboz beolvasása vagy megadása…" autocomplete="off" />
+            <button type="button" class="btn-camera" data-camera-target="recount-box-input" title="Beolvasás kamerával">
+              <svg viewBox="0 0 24 24"><path d="M9 3l-1.5 2H4a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-3.5L15 3H9zm3 6a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+            </button>
+            <button class="btn btn-primary" id="btn-recount-start">Számolás indítása</button>
+          </div>
+          <div id="recount-select-feedback" class="scan-feedback"></div>
+        </div>
+
+        <div id="recount-counting" class="hidden">
+          <div class="active-box-badge">
+            <span>📊 Számolás alatt:</span>
+            <strong id="recount-box-label"></strong>
+            <button class="btn btn-ghost btn-small" id="btn-recount-cancel-1">Elvetés</button>
+            <button class="btn btn-primary btn-small" id="btn-recount-close">Lezárás és összevetés</button>
+          </div>
+
+          <div class="scan-panel">
+            <label for="recount-scan">Termék beolvasása (vak számolás)</label>
+            <div class="scan-input-row">
+              <input id="recount-scan" class="scan-input" type="text" placeholder="Vonalkód vagy cikkszám…" autocomplete="off" />
+              <button type="button" class="btn-camera" data-camera-target="recount-scan" title="Beolvasás kamerával">
+                <svg viewBox="0 0 24 24"><path d="M9 3l-1.5 2H4a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-3.5L15 3H9zm3 6a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+              </button>
+            </div>
+            <div class="quick-actions">
+              <button class="btn btn-quick" data-recount-qty="1">+1 db</button>
+              <button class="btn btn-quick" data-recount-qty="10">+10 db</button>
+              <button class="btn btn-quick" data-recount-qty="-1">−1 db</button>
+              <button class="btn btn-ghost" id="btn-recount-undo">Utolsó visszavonása</button>
+            </div>
+            <div id="recount-scan-feedback" class="scan-feedback"></div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table" id="recount-items-table">
+              <thead><tr><th>SKU</th><th>EAN</th><th>Termék</th><th>Megszámolt (eddig)</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="recount-summary" class="hidden">
+          <div class="active-box-badge">
+            <span>📋 Összevetés:</span>
+            <strong id="recount-summary-box-label"></strong>
+            <button class="btn btn-ghost btn-small" id="btn-recount-cancel-2">Elvetés (nem alkalmazza)</button>
+            <button class="btn btn-primary btn-small" id="btn-recount-apply">Jóváhagyás és alkalmazás</button>
+          </div>
+          <p class="hint">A jóváhagyás a mennyiségeket erre a megszámolt értékre írja át, és minden eltérést "leltár-korrekció" okkal rögzít a készletmozgás-naplóban.</p>
+          <div class="table-wrap">
+            <table class="table" id="recount-summary-table">
+              <thead><tr><th>SKU</th><th>EAN</th><th>Termék</th><th>Nyilvántartott</th><th>Megszámolt</th><th>Eltérés</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <h2 style="margin: 26px 0 12px">Egyedi műveletek</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h2>Termék elhelyezése dobozba</h2>
+          <label>Termék (EAN / SKU)</label>
+          <div class="scan-input-row">
+            <input id="place-product" type="text" placeholder="Vonalkód vagy cikkszám" autocomplete="off" />
+            <button type="button" class="btn-camera" data-camera-target="place-product" title="Beolvasás kamerával">
+              <svg viewBox="0 0 24 24"><path d="M9 3l-1.5 2H4a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-3.5L15 3H9zm3 6a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+            </button>
+          </div>
+          <label>Doboz azonosító</label>
+          <div class="scan-input-row">
+            <input id="place-box" type="text" list="boxes-datalist" placeholder="pl. D-001" autocomplete="off" />
+            <button type="button" class="btn-camera" data-camera-target="place-box" title="Beolvasás kamerával (pl. a doboz QR-címkéje)">
+              <svg viewBox="0 0 24 24"><path d="M9 3l-1.5 2H4a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-3.5L15 3H9zm3 6a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+            </button>
+          </div>
+          <label>Mennyiség</label>
+          <input id="place-qty" type="number" min="1" value="1" />
+          <button class="btn btn-primary" id="btn-place">Elhelyezés mentése</button>
+          <div id="place-feedback" class="scan-feedback"></div>
+        </div>
+
+        <div class="card">
+          <h2>Áthelyezés dobozok között</h2>
+          <label>Termék (EAN / SKU)</label>
+          <input id="transfer-product" type="text" placeholder="Vonalkód vagy cikkszám" autocomplete="off" />
+          <label>Forrás doboz</label>
+          <input id="transfer-from" type="text" list="boxes-datalist" placeholder="pl. D-014" autocomplete="off" />
+          <label>Cél doboz</label>
+          <input id="transfer-to" type="text" list="boxes-datalist" placeholder="pl. D-027" autocomplete="off" />
+          <label>Mennyiség</label>
+          <input id="transfer-qty" type="number" min="1" value="1" />
+          <button class="btn btn-primary" id="btn-transfer">Áthelyezés</button>
+          <div id="transfer-feedback" class="scan-feedback"></div>
+        </div>
+
+        <div class="card">
+          <h2>Készlet kivétele (rendelés-összekészítés)</h2>
+          <label>Termék (EAN / SKU)</label>
+          <input id="pick-product" type="text" placeholder="Vonalkód vagy cikkszám" autocomplete="off" />
+          <label>Doboz (üresen hagyva automatikus választás)</label>
+          <input id="pick-box" type="text" list="boxes-datalist" placeholder="pl. D-014 (opcionális)" autocomplete="off" />
+          <label>Mennyiség</label>
+          <input id="pick-qty" type="number" min="1" value="1" />
+          <button class="btn btn-primary" id="btn-pick">Kivétel</button>
+          <div id="pick-feedback" class="scan-feedback"></div>
+        </div>
+
+        <div class="card">
+          <h2>Dobozkapacitás beállítása</h2>
+          <label>Doboz azonosító</label>
+          <input id="cap-box" type="text" list="boxes-datalist" placeholder="pl. D-001" autocomplete="off" />
+          <label>Termék (EAN / SKU)</label>
+          <input id="cap-product" type="text" placeholder="Vonalkód vagy cikkszám" autocomplete="off" />
+          <label>Maximális mennyiség</label>
+          <input id="cap-qty" type="number" min="0" value="0" />
+          <button class="btn btn-primary" id="btn-capacity">Kapacitás mentése</button>
+          <div id="cap-feedback" class="scan-feedback"></div>
+        </div>
+      </div>
+      <datalist id="boxes-datalist"></datalist>
+    </section>
+
+    <section class="view hidden" id="view-boxes">
+      <div class="panel-header">
+        <h2 id="boxes-heading">Dobozok / raktári helyek</h2>
+        <div class="inline-form">
+          <input id="box-search" type="text" placeholder="Keresés azonosító / megnevezés szerint…" />
+          <button class="btn btn-ghost" id="btn-print-selected-labels" disabled>Kijelöltek címkéje</button>
+          <button class="btn btn-ghost" id="btn-print-all-labels">Összes címke nyomtatása</button>
+          <button class="btn btn-primary" id="btn-new-box">+ Új doboz</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+<table class="table" id="boxes-table">
+        <thead><tr><th class="col-check"><input type="checkbox" id="boxes-check-all" title="Összes látható kijelölése" /></th><th>Azonosító</th><th>Megnevezés</th><th>Méret (mm)</th><th>Térfogat (l)</th><th>Foglalt db</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+</div>
+    </section>
+
+    <section class="view hidden" id="view-products">
+      <div class="panel-header">
+        <h2 id="products-heading">Termékek</h2>
+        <div class="inline-form">
+          <input id="product-search" type="text" placeholder="Keresés SKU / EAN / név szerint…" />
+          <label class="checkbox-label"><input type="checkbox" id="filter-unplaced" /> csak nincs elhelyezve</label>
+          <button class="btn btn-danger-outline hidden" id="btn-delete-selected-products">Kijelöltek törlése (0)</button>
+          <button class="btn btn-primary" id="btn-new-product">+ Új termék</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+<table class="table" id="products-table">
+        <thead><tr><th><input type="checkbox" id="products-select-all" /></th><th>#</th><th>SKU</th><th>EAN</th><th>Név</th><th>Méret</th><th>Szín</th><th>Elméleti</th><th>Fizikai</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+</div>
+    </section>
+
+    <section class="view hidden" id="view-watchlist">
+      <div class="card">
+        <h2>Új figyelt tétel felvétele</h2>
+        <p class="hint">Add meg, melyik terméket és mennyit várunk — ha ez a termék beolvasásra kerül bárhol az alkalmazásban (leltár, elhelyezés, keresés), egy feltűnő figyelmeztetés jelenik meg.</p>
+        <label>Termék (EAN / SKU)</label>
+        <div class="scan-input-row">
+          <input id="watch-product" type="text" placeholder="Vonalkód vagy cikkszám" autocomplete="off" />
+          <button type="button" class="btn-camera" data-camera-target="watch-product" title="Beolvasás kamerával">
+            <svg viewBox="0 0 24 24"><path d="M9 3l-1.5 2H4a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-3.5L15 3H9zm3 6a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+          </button>
+        </div>
+        <label>Kért mennyiség</label>
+        <input id="watch-qty" type="number" min="1" value="1" />
+        <label>Megjegyzés (pl. vevő neve, rendelésszám)</label>
+        <input id="watch-note" type="text" placeholder="pl. Kovács János, #1234-es rendelés" />
+        <button class="btn btn-primary" id="btn-add-watch">Felvétel a figyelőlistára</button>
+        <div id="watch-add-feedback" class="scan-feedback"></div>
+      </div>
+
+      <div class="panel-header" style="margin-top:20px">
+        <h2 id="watchlist-heading">Figyelt tételek</h2>
+      </div>
+      <div class="table-wrap">
+        <table class="table" id="watchlist-table">
+          <thead><tr><th>SKU</th><th>EAN</th><th>Termék</th><th>Kért</th><th>Félretéve</th><th>Megjegyzés</th><th>Állapot</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="view hidden" id="view-orders">
+      <div id="orders-list-panel">
+        <div class="panel-header">
+          <h2 id="orders-heading">Rendelések</h2>
+          <div class="filter-row" id="orders-filter">
+            <button class="btn btn-ghost active" data-orders-filter="pending">Összekészítésre vár</button>
+            <button class="btn btn-ghost" data-orders-filter="picked">Összekészítve</button>
+            <button class="btn btn-ghost" data-orders-filter="all">Mind</button>
+          </div>
+        </div>
+        <p class="hint">A Shoprenter adminban megnyitott rendeléseket a Kvikk Connect bővítmény küldi ide. Egy rendelésre kattintva látod, melyik terméket melyik dobozból kell kivenni.</p>
+        <div class="table-wrap">
+          <table class="table" id="orders-table">
+            <thead><tr><th>Rendelés</th><th>Vevő</th><th>Tételek</th><th>Szállítás</th><th>Állapot</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="orders-picking-panel" class="hidden">
+        <div class="panel-header">
+          <h2 id="picking-heading">Összekészítés</h2>
+          <button class="btn" id="btn-orders-back">← Vissza a listához</button>
+        </div>
+        <div id="picking-problems"></div>
+
+        <div class="card" id="picking-by-box-card">
+          <div class="panel-header" style="margin:0 0 4px">
+            <h2 style="margin:0">Doboz szerint (bejárási sorrend)</h2>
+            <button class="btn btn-ghost btn-small" id="btn-picking-fullscreen" title="Teljes képernyős, nagybetűs nézet">🔍 Nagyítás</button>
+          </div>
+          <p class="hint">Így egy körrel végig tudsz menni a raktáron, nem kell oda-vissza járkálni.</p>
+          <div id="picking-by-box"></div>
+        </div>
+
+        <div class="panel-header" style="margin-top:20px">
+          <h2>Tételek</h2>
+        </div>
+        <div class="table-wrap">
+          <table class="table" id="picking-table">
+            <thead><tr><th>SKU</th><th>Termék</th><th>Kell</th><th>Hol van</th><th>Elhelyezve</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+          <button class="btn btn-primary" id="btn-toggle-picked">Összekészítettnek jelölés</button>
+          <button class="btn" id="btn-deduct-stock" title="Csak összekészített rendelésnél">Készletcsökkentés könyvelése</button>
+        </div>
+        <p class="hint" id="deduct-stock-hint" style="margin-top:6px"></p>
+      </div>
+    </section>
+
+    <section class="view hidden" id="view-importexport">
+      <div class="grid-2">
+        <div class="card">
+          <h2>Termékadatok importja</h2>
+          <p class="hint">CSV vagy Excelből mentett CSV fájl, oszlopok: sku/cikkszam, ean/vonalkod, name/nev, category/kategoria, size/meret, color/szin, stock/keszlet, suly_g (opcionális).</p>
+          <p class="hint">Súlyok feltöltéséhez: töltsd le jobbra a <strong>Termékek + súlyok export</strong> fájlt, töltsd ki benne a <code>suly_g</code> oszlopot, és töltsd vissza itt. Az üresen hagyott súlyok nem íródnak felül, így több körben is haladhatsz.</p>
+          <input type="file" id="import-file" accept=".csv" />
+          <button class="btn btn-primary" id="btn-import">Importálás</button>
+          <div id="import-result" class="scan-feedback"></div>
+        </div>
+        <div class="card">
+          <h2>Exportok</h2>
+          <p class="hint">Raktári elhelyezés és dobozok jelenlegi állapota letölthető CSV formátumban. A leltár-export az adott munkamenet oldaláról érhető el.</p>
+          <a class="btn btn-ghost" href="/api/io/products/export">Termékek + súlyok export</a>
+          <a class="btn btn-ghost" href="/api/io/warehouse/export">Raktári elhelyezés export</a>
+          <a class="btn btn-ghost" href="/api/io/boxes/export">Dobozok export</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="view hidden" id="view-overview">
+      <div class="stat-grid" id="overview-stats"></div>
+
+      <div class="panel-header">
+        <h2>Elhelyezettség</h2>
+        <div class="inline-form">
+          <a class="btn btn-ghost" id="btn-export-placement" href="/api/reports/placement-status?format=csv">Kimutatás exportálása</a>
+        </div>
+      </div>
+      <p class="hint">„Részben elhelyezve” = van belőle dobozban, de kevesebb, mint a nyilvántartott készlet — vagyis maradt még bedobozolatlan mennyiség.</p>
+      <div class="filter-row" id="placement-filter">
+        <button class="btn btn-ghost active" data-placement-filter="">Mind</button>
+        <button class="btn btn-ghost" data-placement-filter="placed">Elhelyezve</button>
+        <button class="btn btn-ghost" data-placement-filter="partial">Részben elhelyezve</button>
+        <button class="btn btn-ghost" data-placement-filter="unplaced">Nincs elhelyezve</button>
+      </div>
+      <div class="table-wrap">
+        <table class="table" id="placement-table">
+          <thead><tr><th>Cikkszám</th><th>Termék</th><th>Készlet</th><th>Elhelyezve</th><th>Hiányzik</th><th>Dobozok</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="panel-header">
+        <h2>Legutóbbi készletmozgások</h2>
+        <button class="btn btn-danger-outline btn-small" id="btn-clear-movements">Napló ürítése</button>
+      </div>
+      <div class="table-wrap">
+<table class="table" id="movements-table">
+        <thead><tr><th>Időpont</th><th>Termék</th><th>Forrás</th><th>Cél</th><th>Mennyiség</th><th>Művelet</th></tr></thead>
+        <tbody></tbody>
+      </table>
+</div>
+    </section>
+
+    <section class="view hidden" id="view-kvikkstats">
+      <div class="filter-row" id="kvikk-period-filter">
+        <button class="btn btn-ghost active" data-kvikk-period="all">Mind</button>
+        <button class="btn btn-ghost" data-kvikk-period="7">7 nap</button>
+        <button class="btn btn-ghost" data-kvikk-period="30">30 nap</button>
+        <button class="btn btn-ghost" data-kvikk-period="90">90 nap</button>
+        <input type="date" id="kvikk-from" />
+        <span class="hint" style="margin:0 2px">—</span>
+        <input type="date" id="kvikk-to" />
+        <button class="btn btn-primary btn-small" id="btn-kvikk-apply-range">Szűrés</button>
+      </div>
+      <p class="hint" id="kvikk-stats-period"></p>
+      <div class="stat-grid" id="kvikk-stats"></div>
+
+      <div class="panel-header">
+        <h2>Futárok szerint (legyártott címkék)</h2>
+      </div>
+      <div class="table-wrap">
+        <table class="table" id="kvikk-courier-table">
+          <thead><tr><th>Futár</th><th>Címkék száma</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="panel-header">
+        <h2 id="kvikk-daily-heading">Napi bontás (utolsó 14 nap)</h2>
+      </div>
+      <p class="hint hidden" id="kvikk-daily-truncated-note">A kijelölt időszak hosszabb, mint amit a diagram mutat — az összesítő kártyák viszont a teljes kijelölt időszakra vonatkoznak.</p>
+      <div id="kvikk-daily-chart" class="kvikk-bar-chart"></div>
+
+      <div class="panel-header">
+        <h2>Legutóbbi sikertelen próbálkozások</h2>
+      </div>
+      <div class="table-wrap">
+        <table class="table" id="kvikk-failed-table">
+          <thead><tr><th>Rendelés</th><th>Címzett</th><th>Futár</th><th>Hiba</th><th>Időpont</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="panel-header">
+        <h2>Rendelések Kvikk címke nélkül — tömeges címkegenerálás</h2>
+        <div class="inline-form" style="gap:8px">
+          <button class="btn btn-ghost btn-small" id="btn-kvikk-select-ready">Kész rendelések kijelölése</button>
+          <button class="btn btn-primary btn-small" id="btn-kvikk-bulk-generate">Kijelöltek címkéinek legenerálása</button>
+          <button class="btn btn-ghost btn-small hidden" id="btn-kvikk-download-zip">Legutóbb generált címkék letöltése (ZIP)</button>
+        </div>
+      </div>
+      <p class="hint">Csak azokhoz a rendelésekhez generálható automatikusan címke, amikhez van rögzített cím/telefon (ehhez legalább egyszer meg kell nyitni a rendelést a Shoprenterben), ismert a tételek súlya, és van korábban használt alapértelmezett futár az adott szállítási módhoz. A többinél a rendszer megmondja, mi hiányzik — ezeket egyenként, a Shoprenterből kell intézni.</p>
+      <div id="kvikk-bulk-result"></div>
+      <div class="table-wrap">
+        <table class="table" id="kvikk-pending-table">
+          <thead><tr><th class="col-check"><input type="checkbox" id="kvikk-select-all" /></th><th>Rendelés</th><th>Vevő</th><th>Szállítás</th><th>Állapot</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="modal-root"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

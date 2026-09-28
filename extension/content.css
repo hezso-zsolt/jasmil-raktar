@@ -1,0 +1,190 @@
+.jkc-panel {
+  position: fixed;
+  top: 90px;
+  right: 20px;
+  width: 320px;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #d8d8d8;
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  z-index: 2147483000;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 13px;
+  color: #222;
+}
+
+.jkc-panel.jkc-collapsed .jkc-body {
+  display: none;
+}
+
+.jkc-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: #1b7a43;
+  color: #fff;
+  border-radius: 10px 10px 0 0;
+  cursor: default;
+}
+
+.jkc-logo {
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  font-size: 12px;
+}
+
+.jkc-title {
+  flex: 1;
+  font-weight: 600;
+}
+
+.jkc-close {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.jkc-body {
+  padding: 14px;
+}
+
+.jkc-loading {
+  color: #777;
+  text-align: center;
+  padding: 10px 0;
+}
+
+.jkc-field {
+  margin-bottom: 10px;
+}
+
+.jkc-field label {
+  display: block;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 3px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.jkc-input,
+.jkc-select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.jkc-w-small {
+  width: 50%;
+}
+
+.jkc-readonly-note {
+  font-size: 12px;
+  color: #666;
+  background: #f5f5f5;
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 12px;
+}
+
+.jkc-btn {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 6px;
+}
+
+.jkc-btn-primary {
+  background: #1b7a43;
+  color: #fff;
+}
+
+.jkc-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.jkc-btn-secondary {
+  background: #eef3ef;
+  color: #1b7a43;
+  border: 1px solid #bcdcc9;
+}
+
+.jkc-status {
+  margin-top: 10px;
+}
+
+.jkc-alert {
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+  font-size: 12.5px;
+}
+
+.jkc-alert-success {
+  background: #eaf7ef;
+  color: #1b7a43;
+  border: 1px solid #bcdcc9;
+}
+
+.jkc-alert-warn {
+  background: #fff7e6;
+  color: #8a5a00;
+  border: 1px solid #ffe2a8;
+}
+
+.jkc-alert-error {
+  background: #fdeaea;
+  color: #a12626;
+  border: 1px solid #f3bcbc;
+}
+
+.jkc-tracking {
+  background: #f7f7f7;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.jkc-pickup-results {
+  margin-top: 4px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.jkc-pickup-item {
+  padding: 6px 8px;
+  border: 1px solid #eee;
+  border-top: none;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+
+.jkc-pickup-item:hover {
+  background: #f2f7f4;
+}
+
+.jkc-pickup-selected {
+  font-size: 12px;
+  color: #1b7a43;
+  margin-top: 4px;
+  font-weight: 600;
+}
