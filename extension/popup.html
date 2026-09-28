@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jasmil – Kvikk Connect</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <span class="logo">JASMIL</span>
+    <span class="title">Kvikk Connect – beállítások</span>
+  </header>
+
+  <main>
+    <div class="status-row">
+      <span id="status-dot" class="dot dot-unknown"></span>
+      <span id="status-text">Kapcsolat ellenőrzése…</span>
+    </div>
+
+    <div class="field">
+      <label for="backendUrl">Backend URL</label>
+      <input type="text" id="backendUrl" placeholder="http://localhost:3000" />
+    </div>
+
+    <div class="field">
+      <label for="extensionToken">Extension token</label>
+      <input type="password" id="extensionToken" placeholder="a Jasmil leltár app indításakor kiírt Extension token" />
+    </div>
+
+    <div class="field">
+      <label for="defaultWeight">Alapértelmezett súly (kg)</label>
+      <input type="number" id="defaultWeight" step="0.1" min="0" />
+    </div>
+
+    <button id="saveBtn" class="btn-primary">Beállítások mentése</button>
+    <button id="testBtn" class="btn-secondary">Kapcsolat tesztelése</button>
+
+    <p class="hint">
+      A rendelés részletező oldalon (Shoprenter admin) a jobb oldalon
+      automatikusan megjelenik a Kvikk panel, ha a rendszer felismeri az oldalt.
+    </p>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>

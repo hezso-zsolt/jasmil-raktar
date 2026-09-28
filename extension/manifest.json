@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Jasmil – Kvikk Connect",
+  "version": "0.9.1",
+  "description": "Kvikk csomag és futárcímke létrehozása közvetlenül a Shoprenter admin rendelés oldaláról, Gold-váltás nélkül.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Jasmil Kvikk Connect – beállítások"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["storage"],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "https://*/*",
+    "http://*/*"
+  ],
+  "content_scripts": [
+    {
+      "//comment": "MVP-ben minden oldalon lefut a content script, de a panel csak akkor jelenik meg, ha a page-detector felismeri a Shoprenter rendelés részletező oldalát (lásd content.js isOrderDetailPage()). Éles/publikált verzió előtt érdemes ezt a saját admin domainre szűkíteni, pl.: \"https://admin.jasmil.hu/*\"",
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
