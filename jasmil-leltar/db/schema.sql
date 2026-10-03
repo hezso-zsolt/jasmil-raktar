@@ -278,3 +278,59 @@ CREATE TABLE IF NOT EXISTS box_recount_actions (
   delta INTEGER NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ---------- Bejövő számlák ----------
+
+-- Szállítók. Az adószám alapján ismeri fel az app egy új számla küldőjét,
+-- ha attól a szállítótól már jóváhagytunk korábban számlát.
+CREATE TABLE IF NOT EXISTS suppliers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  tax_number TEXT,
+  default_category TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_suppliers_tax ON suppliers(tax_number);
+
+-- status: 'ellenorizendo' = a mappából/feltöltésből automatikusan beolvasva,
+--                          még át kell nézni
+--         'fizetendo'     = jóváhagyva, még nincs kifizetve
+--         'fizetve'       = kifizetve (paid_at: a fizetés napja)
+-- A "lejárt" állapotot nem tároljuk: fizetendő + a határidő elmúlt.
+-- file_name: a data/szamlak/ mappán belüli relatív útvonal (a PDF másolata)
+-- file_hash: a PDF SHA-256 lenyomata, hogy ugyanazt a fájlt ne olvassuk be kétszer
+CREATE TABLE IF NOT EXISTS invoices (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL,
+  supplier_name TEXT,
+  supplier_tax_number TEXT,
+  invoice_number TEXT,
+  issue_date TEXT,
+  fulfillment_date TEXT,
+  due_date TEXT,
+  net_amount REAL,
+  vat_amount REAL,
+  gross_amount REAL,
+  currency TEXT NOT NULL DEFAULT 'HUF',
+  payment_method TEXT,
+  category TEXT,
+  note TEXT,
+  status TEXT NOT NULL DEFAULT 'ellenorizendo',
+  paid_at TEXT,
+  source TEXT NOT NULL DEFAULT 'kezi',
+  file_name TEXT,
+  original_file_name TEXT,
+  file_hash TEXT,
+  extract_warnings TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_invoices_hash ON invoices(file_hash) WHERE file_hash IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status, due_date);
+
+-- Egyszerű kulcs-érték beállítások (pl. a figyelt számla-mappa útvonala).
+-- Az adatbázisban vannak, így a napi mentés ezeket is menti.
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
