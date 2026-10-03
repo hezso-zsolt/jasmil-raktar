@@ -24,6 +24,12 @@ letölti a legújabb verziót (`git pull`), ellenőrzi a csomagokat
 Kényelmes, ha az Asztalra teszel róla egy parancsikont (jobb klikk →
 *Küldés* → *Asztal (parancsikon létrehozása)*).
 
+Ha azt szeretnéd, hogy a gép **bekapcsolásakor magától** frissítsen és
+induljon, tedd a parancsikont az Indítópult mappába: Windows+R →
+`shell:startup` → Enter, és másold be oda. Ha induláskor nincs internet,
+a fájl nem áll meg, hanem 10 másodperc után a meglévő verzióval indítja
+az appot.
+
 ## Telepítés / indítás
 
 ```bash
