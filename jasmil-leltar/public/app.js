@@ -53,6 +53,7 @@ const VIEW_TITLES = {
   watchlist: 'Termékfigyelő',
   orders: 'Rendelések',
   importexport: 'Import / export',
+  invoices: 'Számlák',
   kvikkstats: 'Kvikk statisztika',
   overview: 'Áttekintés',
 };
@@ -71,6 +72,7 @@ function showView(name) {
   if (name === 'orders') { showOrdersList(); loadOrders(); }
   if (name === 'overview') loadOverview();
   if (name === 'kvikkstats') loadKvikkStats();
+  if (name === 'invoices') loadInvoices();
   if (name === 'inventory') { showSessionList(); loadSessions(); }
   if (name === 'placement') refreshBoxDatalist();
 }
@@ -2536,6 +2538,482 @@ async function updateOrdersBadge() {
   } catch (e) { /* nem kritikus */ }
 }
 
+// ---------- Bejövő számlák ----------
+
+const invoiceFilter = { status: 'all', q: '', supplier_id: '', category: '', from: '', to: '' };
+const INVOICE_PAID_BY_DEFAULT = ['Készpénz', 'Bankkártya'];
+const PAYMENT_METHOD_OPTIONS = ['Átutalás', 'Bankkártya', 'Készpénz', 'Csoportos beszedés', 'Utánvét', 'PayPal'];
+
+function fmtMoney(n, currency = 'HUF') {
+  if (n === null || n === undefined || n === '') return '—';
+  const digits = currency === 'HUF' ? 0 : 2;
+  const s = Number(n).toLocaleString('hu-HU', { minimumFractionDigits: digits, maximumFractionDigits: 2 });
+  return currency === 'HUF' ? `${s} Ft` : `${s} ${currency}`;
+}
+
+function fmtSums(sums) {
+  const entries = Object.entries(sums || {});
+  if (!entries.length) return fmtMoney(0);
+  return entries.map(([cur, sum]) => fmtMoney(sum, cur)).join(' + ');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const [y, m, d] = iso.slice(0, 10).split('-');
+  return `${y}.${m}.${d}.`;
+}
+
+function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function daysBetween(fromIso, toIso) {
+  return Math.round((new Date(`${toIso}T00:00:00`) - new Date(`${fromIso}T00:00:00`)) / 86400000);
+}
+
+function invoiceQuery() {
+  const params = new URLSearchParams();
+  Object.entries(invoiceFilter).forEach(([k, v]) => { if (v) params.set(k, v); });
+  return params.toString();
+}
+
+function invoiceStatusTag(inv) {
+  if (inv.status === 'ellenorizendo') return el('span', { class: 'tag tag-warn' }, 'Ellenőrizendő');
+  if (inv.status === 'fizetve') return el('span', { class: 'tag tag-ok' }, `Kifizetve ${inv.paid_at ? fmtDate(inv.paid_at) : ''}`.trim());
+  if (inv.overdue) return el('span', { class: 'tag tag-bad' }, 'Lejárt');
+  return el('span', { class: 'tag tag-neutral' }, 'Fizetendő');
+}
+
+function dueCell(inv) {
+  if (!inv.due_date) return el('td', { class: 'mono' }, '—');
+  const text = [el('span', {}, fmtDate(inv.due_date))];
+  if (inv.status === 'fizetendo') {
+    const diff = daysBetween(localToday(), inv.due_date);
+    let note = null;
+    if (diff < 0) note = `${-diff} napja lejárt`;
+    else if (diff === 0) note = 'ma esedékes';
+    else if (diff <= 7) note = `${diff} nap múlva`;
+    if (note) text.push(el('div', { class: diff < 0 ? 'invoice-due-note bad' : 'invoice-due-note' }, note));
+  }
+  return el('td', { class: inv.overdue ? 'mono invoice-overdue' : 'mono' }, text);
+}
+
+function renderInvoiceStats(s) {
+  const grid = document.getElementById('invoice-stats');
+  grid.innerHTML = '';
+  const boxes = [
+    { num: String(s.to_review), label: 'Ellenőrizendő', status: 'ellenorizendo', cls: s.to_review ? 'stat-warn' : '' },
+    { num: String(s.to_pay.count), label: `Fizetendő — ${fmtSums(s.to_pay.sums)}`, status: 'fizetendo' },
+    { num: String(s.due_soon.count), label: `7 napon belül esedékes — ${fmtSums(s.due_soon.sums)}`, status: 'fizetendo' },
+    { num: String(s.overdue.count), label: `Lejárt — ${fmtSums(s.overdue.sums)}`, status: 'lejart', cls: s.overdue.count ? 'stat-bad' : '' },
+    { num: String(s.paid_this_month.count), label: `Kifizetve ebben a hónapban — ${fmtSums(s.paid_this_month.sums)}`, status: 'fizetve' },
+  ];
+  boxes.forEach((b) => {
+    grid.appendChild(el('div', {
+      class: `stat-box stat-clickable ${b.cls || ''}`,
+      title: 'Kattints a szűréshez',
+      onclick: () => setInvoiceStatusFilter(b.status),
+    }, [
+      el('div', { class: 'num' }, b.num),
+      el('div', { class: 'label' }, b.label),
+    ]));
+  });
+  updateInvoicesBadgeFrom(s);
+}
+
+function updateInvoicesBadgeFrom(s) {
+  const badge = document.getElementById('invoices-nav-badge');
+  const n = s.to_review + s.overdue.count;
+  badge.textContent = String(n);
+  badge.classList.toggle('hidden', n === 0);
+}
+
+async function updateInvoicesBadge() {
+  try {
+    updateInvoicesBadgeFrom(await api('GET', '/api/invoices/summary'));
+  } catch (e) { /* nem kritikus */ }
+}
+
+function setInvoiceStatusFilter(status) {
+  invoiceFilter.status = status;
+  document.querySelectorAll('#invoice-status-filter .chip').forEach((c) => {
+    c.classList.toggle('active', c.dataset.invoiceStatus === status);
+  });
+  loadInvoices();
+}
+
+function fillSelect(select, options, emptyLabel) {
+  const current = select.value;
+  select.innerHTML = '';
+  select.appendChild(el('option', { value: '' }, emptyLabel));
+  options.forEach(([value, label]) => select.appendChild(el('option', { value: String(value) }, label)));
+  select.value = options.some(([v]) => String(v) === current) ? current : '';
+}
+
+let invoiceSuppliers = [];
+let invoiceCategories = [];
+
+async function loadInvoiceLookups() {
+  [invoiceSuppliers, invoiceCategories] = await Promise.all([
+    api('GET', '/api/invoices/suppliers'),
+    api('GET', '/api/invoices/categories'),
+  ]);
+  fillSelect(document.getElementById('invoice-supplier-filter'),
+    invoiceSuppliers.map((s) => [s.id, s.name]), 'Minden szállító');
+  fillSelect(document.getElementById('invoice-category-filter'),
+    invoiceCategories.map((c) => [c, c]), 'Minden kategória');
+}
+
+async function loadInvoiceSettings() {
+  try {
+    const s = await api('GET', '/api/invoices/settings');
+    document.getElementById('invoice-inbox-dir').textContent = s.inbox_dir;
+    const last = s.last_scan;
+    const info = document.getElementById('invoice-last-scan');
+    if (last) {
+      const at = new Date(last.at).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
+      info.textContent = last.errors.length
+        ? `Utolsó beolvasás ${at}: ${last.errors.join(' · ')}`
+        : `Utolsó beolvasás: ${at} (az app percenként újra megnézi a mappát)`;
+      info.classList.toggle('invoice-scan-error', last.errors.length > 0);
+    }
+    return s;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function loadInvoices() {
+  let data;
+  try {
+    [data] = await Promise.all([
+      api('GET', `/api/invoices?${invoiceQuery()}`),
+      loadInvoiceLookups(),
+      loadInvoiceSettings(),
+    ]);
+  } catch (err) {
+    toast(err.message, 'err');
+    return;
+  }
+  renderInvoiceStats(data.summary);
+  document.getElementById('btn-invoice-export').href = `/api/invoices/export?${invoiceQuery()}`;
+  document.getElementById('invoices-heading').innerHTML =
+    `Számlák <span class="tag tag-neutral">${data.invoices.length} db</span>`;
+
+  const tbody = document.querySelector('#invoices-table tbody');
+  tbody.innerHTML = '';
+  if (!data.invoices.length) {
+    const empty = invoiceFilter.status === 'all' && !invoiceFilter.q && !invoiceFilter.supplier_id && !invoiceFilter.from && !invoiceFilter.to && !invoiceFilter.category;
+    tbody.appendChild(el('tr', {}, el('td', { colspan: '8', class: 'hint' },
+      empty ? 'Még nincs számla. Ments egy számla-PDF-et a figyelt mappába, vagy töltsd fel a fenti gombbal.' : 'Nincs a szűrésnek megfelelő számla.')));
+  }
+  data.invoices.forEach((inv) => {
+    const actions = [];
+    if (inv.status === 'ellenorizendo') {
+      actions.push(el('button', { class: 'btn btn-primary btn-small', onclick: (e) => { e.stopPropagation(); openInvoiceModal(inv.id); } }, 'Átnézés'));
+    } else if (inv.status === 'fizetendo') {
+      actions.push(el('button', { class: 'btn btn-ghost btn-small', onclick: (e) => { e.stopPropagation(); markInvoicePaid(inv); } }, '✓ Kifizetve'));
+    }
+    const supplierCell = [el('div', { class: 'invoice-supplier' }, inv.supplier_name || '(ismeretlen szállító)')];
+    if (inv.status === 'ellenorizendo' && inv.extract_warnings.length) {
+      supplierCell.push(el('div', { class: 'invoice-due-note bad' }, '⚠ hiányos adatok'));
+    }
+    tbody.appendChild(el('tr', { class: 'invoice-row', onclick: () => openInvoiceModal(inv.id) }, [
+      el('td', {}, supplierCell),
+      el('td', { class: 'mono' }, inv.invoice_number || '—'),
+      el('td', { class: 'mono' }, fmtDate(inv.issue_date)),
+      dueCell(inv),
+      el('td', { class: 'mono num-col' }, fmtMoney(inv.gross_amount, inv.currency)),
+      el('td', {}, inv.category || '—'),
+      el('td', {}, invoiceStatusTag(inv)),
+      el('td', { class: 'invoice-actions' }, actions),
+    ]));
+  });
+  document.getElementById('invoices-total').textContent = data.invoices.length
+    ? `A listában szereplő számlák bruttó összege: ${fmtSums(data.totals)}`
+    : '';
+}
+
+async function markInvoicePaid(inv) {
+  try {
+    await api('POST', `/api/invoices/${inv.id}/pay`, { paid: true });
+    toast(`Kifizetettnek jelölve: ${inv.supplier_name || ''} ${inv.invoice_number || ''}`.trim());
+    loadInvoices();
+  } catch (err) {
+    toast(err.message, 'err');
+  }
+}
+
+function invoiceField(label, input, { wide = false } = {}) {
+  return el('div', { class: wide ? 'invoice-field wide' : 'invoice-field' }, [el('label', {}, label), input]);
+}
+
+function datalist(id, values) {
+  return el('datalist', { id }, values.map((v) => el('option', { value: v })));
+}
+
+async function openInvoiceModal(id) {
+  let inv = null;
+  if (id) {
+    try {
+      inv = await api('GET', `/api/invoices/${id}`);
+    } catch (err) {
+      toast(err.message, 'err');
+      return;
+    }
+    if (!invoiceSuppliers.length) await loadInvoiceLookups().catch(() => {});
+  }
+  const isReview = inv && inv.status === 'ellenorizendo';
+  const v = (k) => (inv && inv[k] !== null && inv[k] !== undefined ? String(inv[k]) : '');
+  const input = (name, attrs = {}) => {
+    const node = el('input', { type: 'text', name, value: v(name), autocomplete: 'off', ...attrs });
+    if (isReview && attrs['data-required'] && !node.value) node.classList.add('invoice-missing');
+    node.addEventListener('input', () => node.classList.remove('invoice-missing'));
+    return node;
+  };
+
+  const f = {
+    supplier_name: input('supplier_name', { list: 'invoice-supplier-list', 'data-required': '1' }),
+    supplier_tax_number: input('supplier_tax_number', { placeholder: 'pl. 12345678-2-42' }),
+    invoice_number: input('invoice_number', { 'data-required': '1' }),
+    issue_date: input('issue_date', { type: 'date', 'data-required': '1' }),
+    fulfillment_date: input('fulfillment_date', { type: 'date' }),
+    due_date: input('due_date', { type: 'date', 'data-required': '1' }),
+    net_amount: input('net_amount', { inputmode: 'decimal' }),
+    vat_amount: input('vat_amount', { inputmode: 'decimal' }),
+    gross_amount: input('gross_amount', { inputmode: 'decimal', 'data-required': '1' }),
+    currency: el('select', { name: 'currency' }, ['HUF', 'EUR', 'USD'].map((c) => el('option', { value: c }, c))),
+    payment_method: input('payment_method', { list: 'invoice-payment-list' }),
+    category: input('category', { list: 'invoice-category-list', placeholder: 'pl. Áru, Rezsi' }),
+    note: el('textarea', { name: 'note', rows: '2' }),
+    status: el('select', { name: 'status' }, [
+      el('option', { value: 'fizetendo' }, 'Fizetendő'),
+      el('option', { value: 'fizetve' }, 'Kifizetve'),
+    ]),
+    paid_at: input('paid_at', { type: 'date' }),
+  };
+  f.currency.value = v('currency') || 'HUF';
+  f.note.value = v('note');
+  if (inv && inv.status === 'fizetve') f.status.value = 'fizetve';
+  else if (isReview && INVOICE_PAID_BY_DEFAULT.includes(inv.payment_method)) f.status.value = 'fizetve';
+  else f.status.value = 'fizetendo';
+  if (f.status.value === 'fizetve' && !f.paid_at.value) f.paid_at.value = (inv && inv.issue_date) || localToday();
+
+  const paidField = invoiceField('Kifizetés napja', f.paid_at);
+  const syncPaid = () => paidField.classList.toggle('hidden', f.status.value !== 'fizetve');
+  f.status.addEventListener('change', () => {
+    if (f.status.value === 'fizetve' && !f.paid_at.value) f.paid_at.value = localToday();
+    syncPaid();
+  });
+  syncPaid();
+
+  // Nettó + ÁFA → bruttó, ha a bruttó üres vagy eddig is az összegük volt
+  const num = (node) => {
+    const n = Number(node.value.replace(/\s/g, '').replace(',', '.'));
+    return node.value.trim() && Number.isFinite(n) ? n : null;
+  };
+  let lastAutoGross = null;
+  const recalc = () => {
+    const n = num(f.net_amount);
+    const a = num(f.vat_amount);
+    if (n === null || a === null) return;
+    const g = num(f.gross_amount);
+    if (g === null || g === lastAutoGross) {
+      lastAutoGross = Math.round((n + a) * 100) / 100;
+      f.gross_amount.value = String(lastAutoGross);
+      f.gross_amount.classList.remove('invoice-missing');
+    }
+  };
+  f.net_amount.addEventListener('change', recalc);
+  f.vat_amount.addEventListener('change', recalc);
+  // Ismert szállító kiválasztásakor az adószám és a kategória is kitöltődik
+  f.supplier_name.addEventListener('change', () => {
+    const s = invoiceSuppliers.find((x) => x.name.toLowerCase() === f.supplier_name.value.trim().toLowerCase());
+    if (!s) return;
+    if (!f.supplier_tax_number.value && s.tax_number) f.supplier_tax_number.value = s.tax_number;
+    if (!f.category.value && s.default_category) f.category.value = s.default_category;
+  });
+
+  const form = el('div', { class: 'invoice-form' }, [
+    invoiceField('Szállító', f.supplier_name, { wide: true }),
+    invoiceField('Szállító adószáma', f.supplier_tax_number),
+    invoiceField('Számlaszám', f.invoice_number),
+    invoiceField('Kiállítás dátuma', f.issue_date),
+    invoiceField('Teljesítés dátuma', f.fulfillment_date),
+    invoiceField('Fizetési határidő', f.due_date),
+    invoiceField('Fizetési mód', f.payment_method),
+    invoiceField('Nettó összeg', f.net_amount),
+    invoiceField('ÁFA', f.vat_amount),
+    invoiceField('Bruttó összeg (fizetendő)', f.gross_amount),
+    invoiceField('Pénznem', f.currency),
+    invoiceField('Kategória', f.category),
+    invoiceField('Állapot', f.status),
+    paidField,
+    invoiceField('Megjegyzés', f.note, { wide: true }),
+    datalist('invoice-supplier-list', invoiceSuppliers.map((s) => s.name)),
+    datalist('invoice-category-list', invoiceCategories),
+    datalist('invoice-payment-list', PAYMENT_METHOD_OPTIONS),
+  ]);
+
+  const side = [];
+  if (isReview) {
+    side.push(el('div', { class: 'invoice-review-note' }, [
+      el('strong', {}, 'Automatikusan beolvasott adatok. '),
+      'Vesd össze a bal oldali PDF-fel, javítsd, ha kell, majd mentsd. A sárga mezőket nem sikerült felismerni.',
+    ]));
+  }
+  if (inv && inv.extract_warnings.length) {
+    side.push(el('ul', { class: 'invoice-warnings' }, inv.extract_warnings.map((w) => el('li', {}, w))));
+  }
+  side.push(form);
+
+  const pdfPane = inv && inv.has_file
+    ? el('div', { class: 'invoice-pdf' }, [
+      el('iframe', { src: `/api/invoices/${inv.id}/pdf#view=FitH&navpanes=0`, title: 'Számla PDF' }),
+      el('a', { class: 'btn btn-ghost btn-small', href: `/api/invoices/${inv.id}/pdf`, target: '_blank', rel: 'noopener' }, 'PDF megnyitása új lapon'),
+    ])
+    : null;
+
+  const root = document.getElementById('modal-root');
+  root.innerHTML = '';
+  const close = () => { root.innerHTML = ''; };
+  const save = async () => {
+    const body = {};
+    Object.entries(f).forEach(([k, node]) => { body[k] = node.value; });
+    if (body.status !== 'fizetve') body.paid_at = '';
+    try {
+      const saved = inv
+        ? await api('PUT', `/api/invoices/${inv.id}`, body)
+        : await api('POST', '/api/invoices', body);
+      if (saved.duplicate_of) toast(`Figyelem: ugyanez a számlaszám ettől a szállítótól már szerepel (#${saved.duplicate_of}).`, 'err');
+      else toast(isReview ? 'Számla jóváhagyva.' : 'Számla elmentve.');
+      close();
+      loadInvoices();
+    } catch (err) {
+      toast(err.message, 'err');
+    }
+  };
+  const remove = async () => {
+    if (!confirm('Biztosan törlöd ezt a számlát? A hozzá tartozó PDF másolata is törlődik az appból.')) return;
+    try {
+      await api('DELETE', `/api/invoices/${inv.id}`);
+      toast('Számla törölve.');
+      close();
+      loadInvoices();
+    } catch (err) {
+      toast(err.message, 'err');
+    }
+  };
+
+  const title = !inv ? 'Új számla kézi rögzítése' : isReview ? 'Beolvasott számla átnézése' : 'Számla adatai';
+  const backdrop = el('div', { class: 'modal-backdrop', onclick: (e) => { if (e.target === backdrop) close(); } }, [
+    el('div', { class: `modal modal-invoice ${pdfPane ? 'has-pdf' : ''}` }, [
+      el('h2', {}, title),
+      el('div', { class: 'invoice-modal-body' }, [pdfPane, el('div', { class: 'invoice-side' }, side)]),
+      el('div', { class: 'modal-actions' }, [
+        inv ? el('button', { class: 'btn btn-danger-outline invoice-delete', onclick: remove }, 'Törlés') : null,
+        el('button', { class: 'btn btn-ghost', onclick: close }, 'Mégse'),
+        el('button', { class: 'btn btn-primary', onclick: save }, isReview ? 'Jóváhagyás és mentés' : 'Mentés'),
+      ]),
+    ]),
+  ]);
+  root.appendChild(backdrop);
+  (isReview ? form.querySelector('.invoice-missing') : f.supplier_name)?.focus();
+}
+
+function invoiceImportToast(r) {
+  const parts = [];
+  if (r.imported) parts.push(`${r.imported} új számla beolvasva`);
+  if (r.duplicates) parts.push(`${r.duplicates} már szerepelt`);
+  if (!r.imported && !r.duplicates && !r.errors.length) parts.push('Nem találtam új PDF-et a mappában');
+  if (parts.length) toast(`${parts.join(', ')}.`);
+  if (r.errors.length) toast(r.errors.join(' · '), 'err');
+}
+
+document.getElementById('btn-invoice-scan').addEventListener('click', async (e) => {
+  e.target.disabled = true;
+  try {
+    invoiceImportToast(await api('POST', '/api/invoices/scan'));
+    await loadInvoices();
+  } catch (err) {
+    toast(err.message, 'err');
+  } finally {
+    e.target.disabled = false;
+  }
+});
+
+document.getElementById('invoice-upload').addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []);
+  e.target.value = '';
+  if (!files.length) return;
+  const fd = new FormData();
+  files.forEach((file) => fd.append('files', file));
+  try {
+    const res = await fetch('/api/invoices/upload', { method: 'POST', body: fd });
+    const r = await res.json();
+    if (!res.ok) throw new Error(r.error || `Hiba (${res.status})`);
+    invoiceImportToast(r);
+    await loadInvoices();
+    if (r.imported === 1 && r.ids.length === 1) openInvoiceModal(r.ids[0]);
+  } catch (err) {
+    toast(err.message, 'err');
+  }
+});
+
+document.getElementById('btn-invoice-new').addEventListener('click', async () => {
+  if (!invoiceSuppliers.length) await loadInvoiceLookups().catch(() => {});
+  openInvoiceModal(null);
+});
+
+document.getElementById('btn-invoice-settings').addEventListener('click', async () => {
+  const s = await loadInvoiceSettings();
+  if (!s) return toast('Nem sikerült betölteni a beállításokat.', 'err');
+  openModal('Számlák beállításai', [
+    { id: 'set-inbox-dir', label: 'Figyelt mappa (ide mentsd a letöltött számla-PDF-eket, pl. C:\\Claude_RAKTAR\\szamlak)', type: 'text', value: s.inbox_dir },
+    { id: 'set-own-tax', label: 'Saját adószám(ok), vesszővel elválasztva — így biztosan nem a saját cégünket veszi szállítónak', type: 'text', value: s.own_tax_numbers.join(', ') },
+    { id: 'set-own-names', label: 'Saját cégnév (vagy részlete), vesszővel elválasztva', type: 'text', value: s.own_names.join(', ') },
+  ], async (vals) => {
+    await api('PUT', '/api/invoices/settings', {
+      inbox_dir: vals['set-inbox-dir'],
+      own_tax_numbers: vals['set-own-tax'].split(',').map((x) => x.trim()).filter(Boolean),
+      own_names: vals['set-own-names'].split(',').map((x) => x.trim()).filter(Boolean),
+    });
+    toast('Beállítások elmentve.');
+    loadInvoices();
+  });
+});
+
+document.querySelectorAll('#invoice-status-filter .chip').forEach((chip) => {
+  chip.addEventListener('click', () => setInvoiceStatusFilter(chip.dataset.invoiceStatus));
+});
+document.getElementById('invoice-search').addEventListener('input', debounce((e) => {
+  invoiceFilter.q = e.target.value.trim();
+  loadInvoices();
+}, 300));
+[['invoice-supplier-filter', 'supplier_id'], ['invoice-category-filter', 'category'], ['invoice-from', 'from'], ['invoice-to', 'to']]
+  .forEach(([elId, key]) => {
+    document.getElementById(elId).addEventListener('change', (e) => {
+      invoiceFilter[key] = e.target.value;
+      loadInvoices();
+    });
+  });
+document.getElementById('btn-invoice-clear-filters').addEventListener('click', () => {
+  Object.assign(invoiceFilter, { q: '', supplier_id: '', category: '', from: '', to: '' });
+  ['invoice-search', 'invoice-supplier-filter', 'invoice-category-filter', 'invoice-from', 'invoice-to']
+    .forEach((elId) => { document.getElementById(elId).value = ''; });
+  setInvoiceStatusFilter('all');
+});
+
+// A háttérben (a figyelt mappából) érkező számlák miatt percenként frissítjük
+// a menü jelvényét, és ha épp a Számlák oldal van nyitva (ablak nélkül), a listát is.
+setInterval(() => {
+  const onInvoices = !document.getElementById('view-invoices').classList.contains('hidden');
+  const modalOpen = document.getElementById('modal-root').children.length > 0;
+  if (onInvoices && !modalOpen) loadInvoices();
+  else updateInvoicesBadge();
+}, 60 * 1000);
+
 // ---------- Mobilos táblázat-címkék ----------
 // Keskeny kijelzőn a táblázat-sorok kártyákként jelennek meg (style.css),
 // ahol minden cella elé kiírjuk az oszlop nevét. Ehhez a cellák data-label
@@ -2570,6 +3048,7 @@ new MutationObserver((mutations) => {
 showView('search');
 updateWatchlistBadge();
 updateOrdersBadge();
+updateInvoicesBadge();
 
 api('GET', '/api/version')
   .then((data) => { document.getElementById('app-version').textContent = `v${data.version}`; })

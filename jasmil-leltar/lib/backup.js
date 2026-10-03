@@ -59,12 +59,34 @@ function createBackup() {
 
   fs.rmSync(target, { recursive: true, force: true });
   fs.renameSync(tmp, target);
+  mirrorInvoicePdfs();
 
   const backups = listBackups();
   backups.slice(0, Math.max(0, backups.length - KEEP_COUNT)).forEach((old) => {
     fs.rmSync(path.join(BACKUP_DIR, old), { recursive: true, force: true });
   });
   return target;
+}
+
+/**
+ * A bejövő számlák PDF-jei (data/szamlak/) nem kerülnek bele minden napi
+ * mentésbe (14 példányban feleslegesen sok helyet foglalnának), hanem egy
+ * közös data/mentesek/szamla-pdfek/ mappába másoljuk át azokat, amik ott még
+ * nincsenek meg. Így a NAS-ra is egyszer jutnak el. Törölt számla PDF-je a
+ * mentésből nem törlődik.
+ */
+const INVOICE_DIR = path.join(DATA_DIR, 'szamlak');
+const INVOICE_MIRROR_DIR = path.join(BACKUP_DIR, 'szamla-pdfek');
+
+function mirrorInvoicePdfs(src = INVOICE_DIR, dest = INVOICE_MIRROR_DIR) {
+  if (!fs.existsSync(src)) return;
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const from = path.join(src, entry.name);
+    const to = path.join(dest, entry.name);
+    if (entry.isDirectory()) mirrorInvoicePdfs(from, to);
+    else if (entry.isFile() && !fs.existsSync(to)) fs.copyFileSync(from, to);
+  }
 }
 
 function backupIfDue() {

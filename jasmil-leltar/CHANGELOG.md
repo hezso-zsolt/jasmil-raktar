@@ -6,6 +6,50 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.40.0 — Bejövő számlák
+
+- Új oldal a menüben: **Számlák**. Itt tartható nyilván minden beérkező
+  szállítói számla: szállító, számlaszám, kiállítás, teljesítés és fizetési
+  határidő, nettó / ÁFA / bruttó összeg, pénznem, fizetési mód, kategória
+  és megjegyzés, a számla PDF-jével együtt.
+- **Automatikus beolvasás mappából:** a letöltött számla-PDF-eket elég egy
+  mappába menteni (alapból `data/szamlak-bejovo`, a **Beállítások** gombbal
+  átállítható, pl. `C:\Claude_RAKTAR\szamlak`). Az app percenként átnézi
+  a mappát, és minden új PDF-ből **helyben, internet nélkül** kiolvassa a
+  fontos adatokat. A beolvasott fájl a mappán belül a `feldolgozott`
+  almappába kerül. A **Mappa beolvasása most** gombbal azonnal is
+  beolvastatható, és PDF a böngészőből is feltölthető.
+- **Átnézés:** az automatikusan beolvasott számla „Ellenőrizendő” lesz. Az
+  Átnézés ablakban bal oldalt a PDF, jobb oldalt a kiolvasott adatok
+  látszanak; amit az app nem ismert fel, az sárga. Jóváhagyás után a
+  számla „Fizetendő” lesz (kártyás vagy készpénzes számlánál alapból
+  „Kifizetve”).
+- A szállítókat az app megjegyzi: a következő számlájukat már az adószám
+  alapján felismeri, és a korábban megadott kategóriát is kitölti.
+- Ugyanazt a PDF-et nem veszi fel kétszer, és szól, ha ugyanattól a
+  szállítótól ugyanilyen számlaszám már szerepel.
+- **Áttekintés a lap tetején:** hány számla ellenőrizendő, mennyi a
+  fizetendő összeg, mi esedékes 7 napon belül, mi járt le (pirossal), és
+  mennyit fizettünk ki ebben a hónapban. A kártyára kattintva a lista
+  arra szűr. A menüben a jelvény az ellenőrizendő + lejárt számlák számát
+  mutatja.
+- **Lista és szűrés:** állapot (ellenőrizendő / fizetendő / lejárt /
+  kifizetve), szállító, kategória, kiállítási dátum és szabad szöveg
+  szerint. A határidő mellett látszik, hány nap van még hátra, vagy hány
+  napja járt le. Egy kattintással **kifizetettnek** jelölhető.
+- **Export:** a szűrt lista CSV-be tölthető le, ami Excelben megnyitható
+  (pl. a könyvelőnek).
+- **Mentés:** a számlák adatai a napi mentésbe kerülnek, a PDF-ek pedig a
+  `data/mentesek/szamla-pdfek/` mappába másolódnak át, így a NAS-ra is
+  eljutnak.
+- Korlátok: a beszkennelt (csak képet tartalmazó) PDF-ekből nem olvasható
+  ki szöveg, ezeknél kézzel kell kitölteni az adatokat. A szokatlan
+  felépítésű számláknál egy-egy adatot javítani kell az Átnézés ablakban.
+- Frissítés után egyszer újra le kell futnia az `npm install`-nak (a
+  `frissites.bat` ezt elvégzi), mert a PDF-olvasáshoz új összetevő kell.
+
+---
+
 ## 1.39.0 — Automatikus napi mentés
 
 - Az app mostantól **naponta automatikusan mentést készít** az adatbázisról

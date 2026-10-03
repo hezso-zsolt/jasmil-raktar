@@ -204,6 +204,33 @@ Menete:
    minden eltérés bekerül a készletmozgás-naplóba "leltár-korrekció"
    okkal. **Elvetéskor** semmi nem változik, a doboz egyszerűen feloldódik.
 
+### Bejövő számlák
+
+A **Számlák** oldalon a beérkező (szállítói) számlák tarthatók nyilván.
+
+1. A letöltött számla-PDF-eket egy **figyelt mappába** kell menteni
+   (alapból `data/szamlak-bejovo`, a Számlák oldal **Beállítások** gombjával
+   bármelyik mappára átállítható). Az app percenként átnézi a mappát, de a
+   **Mappa beolvasása most** gombbal azonnal is beolvastatható. PDF a
+   böngészőből is feltölthető.
+2. Minden új PDF-ből az app **helyben** (internet nélkül) kiolvassa a
+   szállítót, az adószámát, a számlaszámot, a kiállítás / teljesítés
+   dátumát, a fizetési határidőt, a nettó / ÁFA / bruttó összeget, a
+   pénznemet és a fizetési módot. A számla **ellenőrizendő** állapotba kerül;
+   a beolvasott fájl a figyelt mappán belül a `feldolgozott` almappába kerül.
+3. Az **Átnézés** ablakban bal oldalt a PDF, jobb oldalt a kinyert adatok
+   látszanak; a fel nem ismert mezők sárgák. Jóváhagyás után a számla
+   **fizetendő** (vagy kifizetett) lesz. A szállítót az app megjegyzi, így
+   a következő számlájánál adószám alapján felismeri.
+4. A lista szűrhető állapot (ellenőrizendő / fizetendő / lejárt / kifizetve),
+   szállító, kategória, kiállítási dátum és szabad szöveg szerint, és a
+   szűrt lista CSV-be (Excelben megnyitható) exportálható.
+
+A beszkennelt, csak képet tartalmazó PDF-ekből nem olvasható szöveg - ezeknél
+az adatokat kézzel kell kitölteni. A PDF-ek másolata a `data/szamlak/`
+mappába kerül, a napi mentés pedig a `data/mentesek/szamla-pdfek/` mappába
+viszi át őket.
+
 ## Funkciók / munkafolyamatok
 
 - **Raktári keresés** — EAN/SKU beolvasása → azonnal látszik a termék és az
@@ -296,6 +323,7 @@ adatmodell felkészült a későbbi bővítésükre:
 | Riportok | `GET /api/reports/overview`, `/unplaced`, `/movements`, `DELETE /api/reports/movements` (napló ürítése) |
 | Verzió | `GET /api/version` |
 | Termékfigyelő | `GET/POST /api/watchlist`, `GET /api/watchlist/check?code=`, `POST /api/watchlist/:id/fulfill`, `DELETE /api/watchlist/:id` |
+| Számlák | `GET/POST /api/invoices`, `GET/PUT/DELETE /api/invoices/:id`, `GET /api/invoices/:id/pdf`, `POST /api/invoices/:id/pay`, `POST /api/invoices/scan`, `POST /api/invoices/upload`, `GET/PUT /api/invoices/settings`, `GET /api/invoices/summary`, `/suppliers`, `/categories`, `/export` |
 | Import/export | `POST /api/io/products/import`, `GET /api/io/inventory/:id/export`, `/warehouse/export`, `/boxes/export` |
 
 ## Hibaüzenetek
