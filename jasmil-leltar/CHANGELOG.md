@@ -6,6 +6,27 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.39.0 — Automatikus napi mentés
+
+- Az app mostantól **naponta automatikusan mentést készít** az adatbázisról
+  és a Kvikk beállításokról a `data/mentesek/` mappába. Minden mentés egy
+  dátummal elnevezett almappa (pl. `2026-10-03_1030`), benne a
+  `jasmil.db` és a `kvikk-config.json` fájllal.
+- A mentés futás közben is biztonságos: nem a működő adatbázisfájlt
+  másolja, hanem egy önálló, mindig ép másolatot készít róla.
+- Az első mentés induláskor készül, utána 24 óránként. Ha a gép közben
+  alvó módban volt vagy újraindult, a mentés a következő alkalommal
+  pótlódik.
+- A legutóbbi **14 mentés** marad meg, a régebbiek automatikusan törlődnek.
+- Indításkor a terminál kiírja a mentési mappa pontos helyét. Ezt a mappát
+  érdemes a Synology NAS-ra menteni (pl. Synology Drive Clienttel), így a
+  gép meghibásodása esetén sem vesznek el az adatok.
+- Visszaállítás: állítsd le az appot, a mentésből másold vissza a
+  `jasmil.db` és a `kvikk-config.json` fájlt a `data/` mappába (a régi
+  `jasmil.db-wal` és `jasmil.db-shm` fájlt töröld), majd indítsd újra.
+
+---
+
 ## 1.38.0 — Vonalkódos visszaellenőrzés összekészítés után
 
 - Új rész a **Rendelések → Összekészítés** oldalon: **"Visszaellenőrzés

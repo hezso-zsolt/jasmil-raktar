@@ -130,6 +130,13 @@ async function start() {
 
   const kvikkConfig = require('./lib/kvikkConfig').loadConfig();
   const kvikkIsLive = !kvikkConfig.mockMode && !!kvikkConfig.kvikkApiKey;
+
+  // A mentés a Kvikk beállítások betöltése után indul, hogy egy vadonatúj
+  // telepítésnél a kvikk-config.json már létezzen, és bekerüljön a mentésbe.
+  const backup = require('./lib/backup');
+  backup.startBackupSchedule();
+  console.log(`\n  Automatikus napi mentés helye: ${backup.BACKUP_DIR}`);
+  console.log(`  (ezt a mappát érdemes a NAS-ra menteni, pl. Synology Drive Clienttel)`);
   console.log(`\n  Kvikk Connect (Chrome-bővítmény) beállításaihoz:`);
   console.log(`  → Backend URL:      http://localhost:${HTTP_PORT}  (vagy a lenti hálózati cím)`);
   console.log(`  → Extension token:  ${kvikkConfig.extensionToken}`);
