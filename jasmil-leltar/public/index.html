@@ -440,6 +440,31 @@
           </table>
         </div>
 
+        <div class="card" id="verify-card" style="margin-top:20px">
+          <div class="panel-header" style="margin:0 0 4px">
+            <h2 style="margin:0">Visszaellenőrzés vonalkóddal</h2>
+            <span id="verify-progress" class="tag"></span>
+          </div>
+          <p class="hint">Az összekészített termékeket egyenként olvasd be (kézi olvasóval vagy kamerával). A rendszer jelzi, ha valami hiányzik, több van belőle a kelleténél, vagy nem is része a rendelésnek.</p>
+          <div class="scan-input-row">
+            <input id="verify-scan" class="scan-input" type="text" placeholder="Beolvasás vagy gépelés + Enter…" autocomplete="off" />
+            <button type="button" class="btn-camera" data-camera-target="verify-scan" data-camera-continuous="true" title="Folyamatos beolvasás kamerával">
+              <svg viewBox="0 0 24 24"><path d="M9 3l-1.5 2H4a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-3.5L15 3H9zm3 6a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+            </button>
+          </div>
+          <div id="verify-feedback" class="verify-feedback hidden"></div>
+          <div class="table-wrap" style="margin-top:12px">
+            <table class="table" id="verify-table">
+              <thead><tr><th>Állapot</th><th>SKU / EAN</th><th>Termék</th><th>Beolvasva / kell</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="quick-actions" style="margin-top:10px">
+            <button class="btn btn-ghost" id="btn-verify-undo">Utolsó visszavonása</button>
+            <button class="btn btn-ghost" id="btn-verify-reset">Ellenőrzés újrakezdése</button>
+          </div>
+        </div>
+
         <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
           <button class="btn btn-primary" id="btn-toggle-picked">Összekészítettnek jelölés</button>
           <button class="btn" id="btn-deduct-stock" title="Csak összekészített rendelésnél">Készletcsökkentés könyvelése</button>

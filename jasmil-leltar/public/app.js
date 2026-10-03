@@ -179,6 +179,11 @@ function routeGlobalScan(code) {
     return;
   }
 
+  if (view === 'orders' && currentPickingOrderId) {
+    fillAndSubmit('verify-scan', code);
+    return;
+  }
+
   // Minden más esetben (más nézet, vagy leltár-nézet nyitott munkamenet
   // nélkül) a legegyszerűbb, mindig hasznos válasz: megmutatjuk, mi ez a
   // termék a Raktári keresésben — akkor is, ha közben nézetet kell váltani.
@@ -1909,6 +1914,11 @@ function showWatchlistAlert(items) {
 // =====================================================================
 
 let activeCameraStream = null;
+// Folyamatos módban (pl. visszaellenőrzésnél) a kamera beolvasás után
+// nyitva marad; ide írjuk az utolsó beolvasás eredményét, hogy a
+// képernyőn is látszódjon, ne csak hangjelzés legyen.
+let cameraStatusEl = null;
+const CAMERA_REPEAT_MS = 1500; // ugyanazt a kódot ennyi ideig nem olvassuk be újra
 
 function stopCameraStream() {
   if (activeCameraStream) {
@@ -1917,7 +1927,7 @@ function stopCameraStream() {
   }
 }
 
-async function openCameraScanner(targetInputId) {
+async function openCameraScanner(targetInputId, continuous = false) {
   if (!window.isSecureContext) {
     toast('A kamerás beolvasás csak https:// kapcsolaton érhető el. Nyisd meg az alkalmazást a https:// címen.', 'err');
     return;
@@ -1936,18 +1946,24 @@ async function openCameraScanner(targetInputId) {
   video.muted = true;
   video.playsInline = true;
   const closeBtn = el('button', { class: 'camera-overlay-close', onclick: () => { stopped = true; closeCameraOverlay(); } }, '✕');
+  const statusEl = continuous ? el('div', { class: 'camera-overlay-status hidden' }) : null;
   const overlay = el('div', { class: 'camera-overlay' }, [
     el('div', { class: 'camera-overlay-bar' }, [
-      el('span', {}, 'Tartsd a vonalkódot / QR-kódot a keretbe'),
+      el('span', {}, continuous
+        ? 'Olvasd be a termékeket egymás után — ha végeztél, zárd be ✕'
+        : 'Tartsd a vonalkódot / QR-kódot a keretbe'),
       closeBtn,
     ]),
     video,
     el('div', { class: 'camera-frame-hint' }),
+    statusEl,
   ]);
   root.appendChild(overlay);
+  cameraStatusEl = statusEl;
 
   function closeCameraOverlay() {
     stopCameraStream();
+    cameraStatusEl = null;
     root.innerHTML = '';
   }
 
@@ -1965,6 +1981,8 @@ async function openCameraScanner(targetInputId) {
   video.srcObject = stream;
 
   const detector = new window.BarcodeDetector();
+  let lastValue = null;
+  let lastValueAt = 0;
 
   async function scanLoop() {
     if (stopped) return;
@@ -1972,6 +1990,19 @@ async function openCameraScanner(targetInputId) {
       const codes = await detector.detect(video);
       if (codes.length) {
         const value = codes[0].rawValue;
+        if (continuous) {
+          // Ugyanaz a termék a keretben maradva ne számolódjon többször.
+          const now = Date.now();
+          if (value !== lastValue || now - lastValueAt > CAMERA_REPEAT_MS) {
+            lastValue = value;
+            lastValueAt = now;
+            fillAndSubmit(targetInputId, value);
+          } else {
+            lastValueAt = now;
+          }
+          requestAnimationFrame(scanLoop);
+          return;
+        }
         stopped = true;
         closeCameraOverlay();
         fillAndSubmit(targetInputId, value);
@@ -1987,7 +2018,7 @@ async function openCameraScanner(targetInputId) {
 }
 
 document.querySelectorAll('.btn-camera').forEach((btn) => {
-  btn.addEventListener('click', () => openCameraScanner(btn.dataset.cameraTarget));
+  btn.addEventListener('click', () => openCameraScanner(btn.dataset.cameraTarget, btn.dataset.cameraContinuous === 'true'));
 });
 
 function openContentModal(title, contentNode) {
@@ -2115,6 +2146,8 @@ async function loadOrders() {
     else statusParts.push('⏳ vár');
     if (order.unmatched_count > 0) statusParts.push(`⚠️ ${order.unmatched_count} ismeretlen cikkszám`);
     if (order.kvikk_tracking_number) statusParts.push('📦 van Kvikk címke');
+    if (order.verified_at) statusParts.push('🔎 ellenőrizve');
+    else if (order.verify_scan_count > 0) statusParts.push('🔎 ellenőrzés eltér / folyamatban');
     if (order.stock_deducted_at) statusParts.push('📉 készlet könyvelve');
 
     tbody.appendChild(
@@ -2225,6 +2258,8 @@ async function openPicking(orderRowId) {
     deductBtn.disabled = false;
     deductHint.textContent = '';
   }
+
+  await loadVerify(orderRowId);
 }
 
 document.querySelectorAll('[data-orders-filter]').forEach((btn) => {
@@ -2239,8 +2274,19 @@ document.getElementById('btn-orders-back').addEventListener('click', () => {
   loadOrders();
 });
 
+const toggleBtn = () => document.getElementById('btn-toggle-picked');
 document.getElementById('btn-toggle-picked').addEventListener('click', async () => {
   if (!currentPickingOrderId) return;
+  // Nem tiltjuk, csak rákérdezünk, ha a visszaellenőrzés elkezdődött, de eltérést mutat.
+  const v = lastVerifySummary;
+  const markingPicked = toggleBtn().textContent === 'Összekészítettnek jelölés';
+  if (markingPicked && v && v.scan_count > 0 && !v.complete) {
+    const parts = [];
+    if (v.missing_units) parts.push(`${v.missing_units} db hiányzik`);
+    if (v.over_units) parts.push(`${v.over_units} db túl sok`);
+    if (v.wrong_units) parts.push(`${v.wrong_units} db nem a rendelés része`);
+    if (!confirm(`A vonalkódos ellenőrzés eltérést mutat (${parts.join(', ')}). Biztosan összekészítettnek jelölöd?`)) return;
+  }
   try {
     const res = await api('POST', `/api/orders/${currentPickingOrderId}/picked`);
     toast(res.picked_at ? 'Összekészítve.' : 'Visszaállítva.', 'ok');
@@ -2296,6 +2342,186 @@ document.addEventListener('fullscreenchange', () => {
   const isFullscreen = document.fullscreenElement === pickingByBoxCard;
   pickingByBoxCard.classList.toggle('picking-fullscreen', isFullscreen);
   pickingFullscreenBtn.textContent = isFullscreen ? '✕ Kilépés a nagyításból' : '🔍 Nagyítás';
+});
+
+// ---------- Vonalkódos visszaellenőrzés ----------
+// Az összekészített csomag tartalmát egyenként beolvassuk, és a szerver
+// összeveti a rendelés tételeivel. Minden beolvasás után nagy, színes
+// visszajelzés + rövid hang, hogy a csomagolónak ne kelljen a képernyőt
+// figyelnie: magas csippanás = rendben, mély búgás = hiba.
+
+let lastVerifySummary = null;
+let audioCtx = null;
+
+function verifyBeep(ok) {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = ok ? 'sine' : 'square';
+    osc.frequency.value = ok ? 1400 : 220;
+    gain.gain.value = 0.08;
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + (ok ? 0.08 : 0.35));
+  } catch (e) { /* hang nélkül is működik */ }
+}
+
+function verifyStatusTag(status) {
+  if (status === 'ok') return el('span', { class: 'tag tag-ok' }, '✓ rendben');
+  if (status === 'missing') return el('span', { class: 'tag tag-warn' }, 'hiányzik');
+  if (status === 'over') return el('span', { class: 'tag tag-bad' }, 'túl sok');
+  return el('span', { class: 'tag tag-bad' }, 'nem rendelt');
+}
+
+function renderVerify(summary) {
+  lastVerifySummary = summary;
+
+  const progress = document.getElementById('verify-progress');
+  const scannedUnits = summary.needed_units - summary.missing_units;
+  if (summary.complete) {
+    progress.className = 'tag tag-ok';
+    progress.textContent = '✓ Minden stimmel';
+  } else if (summary.over_units || summary.wrong_units) {
+    progress.className = 'tag tag-bad';
+    progress.textContent = `${scannedUnits} / ${summary.needed_units} db · eltérés`;
+  } else {
+    progress.className = summary.scan_count ? 'tag tag-warn' : 'tag tag-neutral';
+    progress.textContent = `${scannedUnits} / ${summary.needed_units} db`;
+  }
+
+  const tbody = document.querySelector('#verify-table tbody');
+  tbody.innerHTML = '';
+  // Előbb a még teendőt igénylő sorok, a rendben lévők a lista végén.
+  const order = { over: 0, missing: 1, ok: 2 };
+  const lines = summary.lines.slice().sort((a, b) => order[a.status] - order[b.status]);
+
+  for (const extra of summary.extras) {
+    const codeText = [extra.sku, extra.ean].filter(Boolean).join(' / ') || extra.code;
+    tbody.appendChild(
+      el('tr', { class: 'verify-row-bad' }, [
+        el('td', {}, verifyStatusTag('wrong')),
+        el('td', { class: 'mono' }, codeText || '-'),
+        el('td', {}, extra.known_product ? extra.name || '-' : 'Ismeretlen kód — nincs ilyen termék a leltárban'),
+        el('td', {}, `${extra.scanned_qty} / 0 db`),
+        el('td', {}, 'Vedd ki a csomagból'),
+      ])
+    );
+  }
+  for (const line of lines) {
+    const codeText = [line.sku, line.ean].filter(Boolean).join(' / ');
+    // Vonalkód nélküli (vagy a leltárban nem szereplő) terméket kézzel is
+    // le lehet pipálni, különben az ellenőrzés sosem lenne hiánytalan.
+    const manualBtn = line.status === 'missing'
+      ? el('button', {
+          class: 'btn btn-ghost btn-small',
+          title: 'Ha a terméken nincs olvasható vonalkód',
+          onclick: () => verifyScan({ manual_key: line.key }),
+        }, '+1 kézzel')
+      : '';
+    tbody.appendChild(
+      el('tr', { class: line.status === 'ok' ? 'verify-row-ok' : line.status === 'over' ? 'verify-row-bad' : '' }, [
+        el('td', {}, verifyStatusTag(line.status)),
+        el('td', { class: 'mono' }, codeText || '-'),
+        el('td', {}, line.name || '-'),
+        el('td', {}, `${line.scanned_qty} / ${line.needed_qty} db`),
+        el('td', {}, manualBtn),
+      ])
+    );
+  }
+  if (!summary.lines.length && !summary.extras.length) {
+    tbody.appendChild(el('tr', {}, [el('td', { colspan: '5', class: 'hint' }, 'A rendelésnek nincsenek tételei.')]));
+  }
+}
+
+function showVerifyFeedback(type, title, detail) {
+  const box = document.getElementById('verify-feedback');
+  box.className = `verify-feedback verify-${type}`;
+  box.innerHTML = '';
+  box.appendChild(el('div', { class: 'verify-feedback-title' }, title));
+  if (detail) box.appendChild(el('div', { class: 'verify-feedback-detail' }, detail));
+  if (cameraStatusEl) {
+    cameraStatusEl.className = `camera-overlay-status verify-feedback verify-${type}`;
+    cameraStatusEl.innerHTML = box.innerHTML;
+  }
+}
+
+function hideVerifyFeedback() {
+  document.getElementById('verify-feedback').className = 'verify-feedback hidden';
+}
+
+async function loadVerify(orderRowId) {
+  hideVerifyFeedback();
+  document.getElementById('verify-scan').value = '';
+  try {
+    renderVerify(await api('GET', `/api/orders/${orderRowId}/verify`));
+  } catch (err) {
+    toast(err.message, 'err');
+  }
+}
+
+async function verifyScan(body) {
+  if (!currentPickingOrderId) return;
+  let res;
+  try {
+    res = await api('POST', `/api/orders/${currentPickingOrderId}/verify/scan`, body);
+  } catch (err) {
+    verifyBeep(false);
+    showVerifyFeedback('bad', err.message);
+    return;
+  }
+  renderVerify(res);
+
+  const s = res.scanned;
+  const what = [s.name, s.sku || s.code].filter(Boolean).join(' — ');
+  if (res.result === 'ok') {
+    verifyBeep(true);
+    if (res.complete) showVerifyFeedback('ok', '✓ Minden stimmel, a csomag hiánytalan.', what);
+    else showVerifyFeedback('ok', `✓ Rendben (${s.scanned_qty} / ${s.needed_qty} db)`, `${what} · még ${res.missing_units} db hiányzik a csomagból`);
+  } else if (res.result === 'over') {
+    verifyBeep(false);
+    showVerifyFeedback('bad', `✕ Túl sok! Ebből csak ${s.needed_qty} db kell, ez már a ${s.scanned_qty}. darab.`, `${what} · tegyél vissza ${s.scanned_qty - s.needed_qty} db-ot`);
+  } else if (res.result === 'wrong') {
+    verifyBeep(false);
+    showVerifyFeedback('bad', '✕ Rossz termék! Ez nem része a rendelésnek.', `${what} · vedd ki a csomagból`);
+  } else {
+    verifyBeep(false);
+    showVerifyFeedback('bad', `✕ Ismeretlen kód: ${s.code}`, 'Nincs ilyen EAN-kódú vagy cikkszámú termék a leltárban.');
+  }
+}
+
+const verifyInput = document.getElementById('verify-scan');
+verifyInput.addEventListener('keydown', async (e) => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const code = verifyInput.value.trim();
+  if (!code) return;
+  verifyInput.value = '';
+  await verifyScan({ code });
+  verifyInput.focus();
+});
+
+document.getElementById('btn-verify-undo').addEventListener('click', async () => {
+  if (!currentPickingOrderId) return;
+  try {
+    renderVerify(await api('POST', `/api/orders/${currentPickingOrderId}/verify/undo`));
+    hideVerifyFeedback();
+    toast('Utolsó beolvasás visszavonva.', 'ok');
+  } catch (err) {
+    toast(err.message, 'err');
+  }
+});
+
+document.getElementById('btn-verify-reset').addEventListener('click', async () => {
+  if (!currentPickingOrderId) return;
+  if (!confirm('Biztosan újrakezded az ellenőrzést? Az eddigi beolvasások törlődnek.')) return;
+  try {
+    renderVerify(await api('POST', `/api/orders/${currentPickingOrderId}/verify/reset`));
+    hideVerifyFeedback();
+  } catch (err) {
+    toast(err.message, 'err');
+  }
 });
 
 async function updateOrdersBadge() {

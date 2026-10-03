@@ -6,6 +6,40 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.38.0 — Vonalkódos visszaellenőrzés összekészítés után
+
+- Új rész a **Rendelések → Összekészítés** oldalon: **"Visszaellenőrzés
+  vonalkóddal"**. Az összekészített termékeket egyenként beolvasod (kézi
+  vonalkódolvasóval vagy kamerával), és a rendszer tételenként összeveti
+  őket a rendelés mennyiségeivel.
+- Minden beolvasás után **nagy, színes visszajelzés és hangjelzés**:
+  - zöld + rövid csippanás: rendben, ez a termék kell (pl. "2 / 3 db");
+  - piros + mély búgás: **rossz termék** (nem része a rendelésnek),
+    **túl sok** (ebből már megvan a kellő mennyiség), vagy **ismeretlen
+    kód** (nincs ilyen termék a leltárban).
+- A tételtáblázat soronként mutatja az állapotot (rendben / hiányzik /
+  túl sok / nem rendelt), a teendőt igénylő sorok kerülnek felülre. Ha
+  minden stimmel, **"✓ Minden stimmel"** jelzés jelenik meg.
+- Vonalkód nélküli terméknél a hiányzó sor mellett **"+1 kézzel"** gombbal
+  lehet pipálni. Van **"Utolsó visszavonása"** és **"Ellenőrzés
+  újrakezdése"** gomb is.
+- A kamera ebben a részben **folyamatos módban** fut: nem záródik be minden
+  termék után, egymás után lehet beolvasni a csomag tartalmát, az
+  eredmény a kameraképen alul is megjelenik. Ugyanaz a vonalkód a keretben
+  tartva nem számolódik többször.
+- A kézi (USB) olvasó akkor is ide olvas be, ha a beviteli mező épp nincs
+  fókuszban, amíg az összekészítő oldal nyitva van.
+- Az ellenőrzés **nem blokkol**: ha eltérés van, és így jelölöd a rendelést
+  összekészítettnek, a rendszer csak rákérdez. A beolvasások a szerveren
+  tárolódnak, így oldalfrissítés vagy másik eszköz után is megmaradnak.
+- A rendeléslistán **"🔎 ellenőrizve"** jelzés mutatja a hiánytalanul
+  visszaellenőrzött rendeléseket (eltérés vagy félbehagyott ellenőrzés
+  esetén "🔎 ellenőrzés eltér / folyamatban"). Ha a rendelés tételei a
+  Shoprenterből újraimportálva megváltoznak, az "ellenőrizve" állapot
+  újraszámolódik.
+- Egyes olvasók az EAN-13 kód elejéről levágják a 0-t; az ilyen beolvasást
+  is felismeri.
+
 ## 1.37.0 — Modernebb felület
 
 - **Hibajavítás:** a csak bizonyos helyzetben látható elemek eddig mindig

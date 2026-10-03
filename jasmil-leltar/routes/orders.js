@@ -110,6 +110,10 @@ router.post('/import', (req, res) => {
     );
   }
 
+  // Ha a rendelés tételei változtak, egy korábbi "ellenőrizve" állapot
+  // már nem biztos, hogy igaz - az összevetést újraszámoljuk.
+  verifyResponse(db.prepare(`SELECT * FROM shoprenter_orders WHERE id = ?`).get(orderRowId));
+
   res.json({
     ok: true,
     order_id: orderRowId,
@@ -127,7 +131,8 @@ router.get('/', (req, res) => {
          (SELECT COUNT(*) FROM shoprenter_order_items i WHERE i.order_id = o.id) AS item_count,
          (SELECT COALESCE(SUM(i.qty), 0) FROM shoprenter_order_items i WHERE i.order_id = o.id) AS unit_count,
          (SELECT COUNT(*) FROM shoprenter_order_items i WHERE i.order_id = o.id AND i.product_id IS NULL) AS unmatched_count,
-         (SELECT kvikk_tracking_number FROM kvikk_shipments s WHERE s.shoprenter_order_id = o.shoprenter_order_id) AS kvikk_tracking_number
+         (SELECT kvikk_tracking_number FROM kvikk_shipments s WHERE s.shoprenter_order_id = o.shoprenter_order_id) AS kvikk_tracking_number,
+         (SELECT COUNT(*) FROM order_verify_scans v WHERE v.order_id = o.id) AS verify_scan_count
        FROM shoprenter_orders o
        ORDER BY (o.picked_at IS NOT NULL), o.imported_at DESC`
     )
@@ -222,6 +227,221 @@ router.post('/:id/picked', (req, res) => {
     order.id
   );
   res.json({ ok: true, picked_at: newValue });
+});
+
+// ---------------------------------------------------------------------
+// Vonalkódos visszaellenőrzés (az összekészített csomag tartalma)
+//
+// A csomagoló a már összekészített termékeket egyenként beolvassa; a
+// rendszer tételenként összeveti a rendelés mennyiségeivel, és megmondja,
+// mi hiányzik, mi van több a kelleténél, és mi nem is része a rendelésnek.
+// Nem blokkol semmit (összekészítettnek jelölés, készletlevonás) - csak
+// jelez, a döntés a csomagolóé.
+// ---------------------------------------------------------------------
+
+/**
+ * Termék keresése beolvasott kód alapján: EAN vagy cikkszám, pontos
+ * egyezéssel, majd kis/nagybetű-független cikkszámmal, végül a vezető
+ * nullák nélkül összevetett EAN-nel (egyes olvasók az EAN-13 elejéről
+ * levágják a 0-t, és 12 jegyű UPC-ként küldik).
+ */
+function findProductByCode(code) {
+  let row = db.prepare(`SELECT id, sku, ean, name FROM products WHERE ean = ? OR sku = ?`).get(code, code);
+  if (!row) row = db.prepare(`SELECT id, sku, ean, name FROM products WHERE UPPER(sku) = UPPER(?)`).get(code);
+  if (!row && /^\d{8,14}$/.test(code)) {
+    row = db
+      .prepare(`SELECT id, sku, ean, name FROM products WHERE ean <> '' AND LTRIM(ean, '0') = LTRIM(?, '0')`)
+      .get(code);
+  }
+  return row || null;
+}
+
+// Egy rendelés-tétel / beolvasás csoportkulcsa: ismert terméknél a termék,
+// ismeretlen cikkszámú tételnél maga a cikkszám (nagybetűsítve).
+function itemKey(productId, code) {
+  if (productId) return `p:${productId}`;
+  return `c:${String(code || '').trim().toUpperCase()}`;
+}
+
+function buildVerifySummary(order) {
+  const items = db
+    .prepare(
+      `SELECT i.*, p.ean AS product_ean, p.name AS product_name
+         FROM shoprenter_order_items i
+         LEFT JOIN products p ON p.id = i.product_id
+        WHERE i.order_id = ? ORDER BY i.id`
+    )
+    .all(order.id);
+  const scans = db
+    .prepare(
+      `SELECT s.*, p.sku AS product_sku, p.ean AS product_ean, p.name AS product_name
+         FROM order_verify_scans s
+         LEFT JOIN products p ON p.id = s.product_id
+        WHERE s.order_id = ? ORDER BY s.id`
+    )
+    .all(order.id);
+
+  // Rendelés-sorok kulcs szerint összevonva (ha ugyanaz a termék kétszer
+  // szerepelne a rendelésben, egy sorként kell ellenőrizni).
+  const lines = new Map();
+  for (const item of items) {
+    const key = itemKey(item.product_id, item.sku);
+    if (!lines.has(key)) {
+      lines.set(key, {
+        key,
+        sku: item.sku,
+        ean: item.product_ean || null,
+        name: item.product_name || item.name,
+        matched: !!item.product_id,
+        needed_qty: 0,
+        scanned_qty: 0,
+      });
+    }
+    lines.get(key).needed_qty += item.qty;
+  }
+
+  const extras = new Map();
+  for (const s of scans) {
+    const key = itemKey(s.product_id, s.code);
+    if (lines.has(key)) {
+      lines.get(key).scanned_qty++;
+      continue;
+    }
+    if (!extras.has(key)) {
+      extras.set(key, {
+        key,
+        code: s.code,
+        sku: s.product_sku || null,
+        ean: s.product_ean || null,
+        name: s.product_name || null,
+        known_product: !!s.product_id,
+        scanned_qty: 0,
+      });
+    }
+    extras.get(key).scanned_qty++;
+  }
+
+  const lineList = Array.from(lines.values()).map((l) => ({
+    ...l,
+    status: l.scanned_qty === l.needed_qty ? 'ok' : l.scanned_qty < l.needed_qty ? 'missing' : 'over',
+  }));
+  const extraList = Array.from(extras.values());
+
+  const missingUnits = lineList.reduce((sum, l) => sum + Math.max(0, l.needed_qty - l.scanned_qty), 0);
+  const overUnits = lineList.reduce((sum, l) => sum + Math.max(0, l.scanned_qty - l.needed_qty), 0);
+  const wrongUnits = extraList.reduce((sum, e) => sum + e.scanned_qty, 0);
+  const complete = lineList.length > 0 && missingUnits === 0 && overUnits === 0 && wrongUnits === 0;
+
+  return {
+    lines: lineList,
+    extras: extraList,
+    scan_count: scans.length,
+    needed_units: lineList.reduce((sum, l) => sum + l.needed_qty, 0),
+    missing_units: missingUnits,
+    over_units: overUnits,
+    wrong_units: wrongUnits,
+    complete,
+  };
+}
+
+// A rendelés verified_at mezőjét a friss összevetéshez igazítja, és a
+// teljes állapotot adja vissza a felületnek.
+function verifyResponse(order, extra = {}) {
+  const summary = buildVerifySummary(order);
+  const verifiedAt = summary.complete ? order.verified_at || new Date().toISOString() : null;
+  if (verifiedAt !== order.verified_at) {
+    db.prepare(`UPDATE shoprenter_orders SET verified_at = ?, updated_at = datetime('now') WHERE id = ?`).run(
+      verifiedAt,
+      order.id
+    );
+  }
+  return { ...extra, ...summary, verified_at: verifiedAt };
+}
+
+function loadOrder(req, res) {
+  const order = db.prepare(`SELECT * FROM shoprenter_orders WHERE id = ?`).get(req.params.id);
+  if (!order) res.status(404).json({ error: 'Nincs ilyen rendelés.' });
+  return order;
+}
+
+// GET /api/orders/:id/verify - a visszaellenőrzés jelenlegi állapota
+router.get('/:id/verify', (req, res) => {
+  const order = loadOrder(req, res);
+  if (!order) return;
+  res.json(verifyResponse(order));
+});
+
+/**
+ * POST /api/orders/:id/verify/scan  { code }  vagy  { manual_key }
+ * Egy darab beolvasása. A válasz "result" mezője az adott beolvasás
+ * eredménye ('ok' | 'over' | 'wrong' | 'unknown'), mellette a teljes
+ * összevetés. A manual_key egy rendelés-sor kulcsa: vonalkód nélküli
+ * termék kézi pipálása.
+ */
+router.post('/:id/verify/scan', (req, res) => {
+  const order = loadOrder(req, res);
+  if (!order) return;
+  const body = req.body || {};
+
+  let code;
+  let productId = null;
+  let manual = 0;
+
+  if (body.manual_key) {
+    const line = buildVerifySummary(order).lines.find((l) => l.key === body.manual_key);
+    if (!line) return res.status(404).json({ error: 'Ez a tétel nem szerepel a rendelésben.' });
+    manual = 1;
+    code = line.sku;
+    productId = line.key.startsWith('p:') ? Number(line.key.slice(2)) : null;
+  } else {
+    code = String(body.code || '').trim();
+    if (!code) return res.status(400).json({ error: 'Hiányzik a beolvasott kód.' });
+    const product = findProductByCode(code);
+    productId = product ? product.id : null;
+  }
+
+  db.prepare(`INSERT INTO order_verify_scans (order_id, code, product_id, manual) VALUES (?, ?, ?, ?)`).run(
+    order.id,
+    code,
+    productId,
+    manual
+  );
+
+  const summary = buildVerifySummary(order);
+  const key = itemKey(productId, code);
+  const line = summary.lines.find((l) => l.key === key);
+  let result;
+  let scanned;
+  if (line) {
+    result = line.scanned_qty <= line.needed_qty ? 'ok' : 'over';
+    scanned = { sku: line.sku, ean: line.ean, name: line.name, scanned_qty: line.scanned_qty, needed_qty: line.needed_qty };
+  } else {
+    const extra = summary.extras.find((e) => e.key === key);
+    result = productId ? 'wrong' : 'unknown';
+    scanned = { code, sku: extra.sku, ean: extra.ean, name: extra.name, scanned_qty: extra.scanned_qty, needed_qty: 0 };
+  }
+
+  res.json(verifyResponse(order, { result, scanned }));
+});
+
+// POST /api/orders/:id/verify/undo - az utolsó beolvasás visszavonása
+router.post('/:id/verify/undo', (req, res) => {
+  const order = loadOrder(req, res);
+  if (!order) return;
+  const last = db
+    .prepare(`SELECT id FROM order_verify_scans WHERE order_id = ? ORDER BY id DESC LIMIT 1`)
+    .get(order.id);
+  if (!last) return res.status(409).json({ error: 'Nincs visszavonható beolvasás.' });
+  db.prepare(`DELETE FROM order_verify_scans WHERE id = ?`).run(last.id);
+  res.json(verifyResponse(order, { undone: true }));
+});
+
+// POST /api/orders/:id/verify/reset - ellenőrzés újrakezdése
+router.post('/:id/verify/reset', (req, res) => {
+  const order = loadOrder(req, res);
+  if (!order) return;
+  db.prepare(`DELETE FROM order_verify_scans WHERE order_id = ?`).run(order.id);
+  res.json(verifyResponse(order));
 });
 
 router.delete('/:id', (req, res) => {
