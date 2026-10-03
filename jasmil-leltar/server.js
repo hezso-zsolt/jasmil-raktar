@@ -37,6 +37,7 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/io', require('./routes/importExport'));
 app.use('/api/watchlist', require('./routes/watchlist'));
 app.use('/api/orders', require('./routes/orders'));
+app.use('/api/invoices', require('./routes/invoices'));
 
 // --- Kvikk Connect (Shoprenter -> Kvikk futárcímke integráció) ---
 // A leltár app többi végpontjával ellentétben ezeket egy tokennel védjük,
@@ -137,6 +138,11 @@ async function start() {
   backup.startBackupSchedule();
   console.log(`\n  Automatikus napi mentés helye: ${backup.BACKUP_DIR}`);
   console.log(`  (ezt a mappát érdemes a NAS-ra menteni, pl. Synology Drive Clienttel)`);
+
+  const invoiceInbox = require('./lib/invoiceInbox');
+  invoiceInbox.startInboxWatcher();
+  console.log(`\n  Bejövő számlák figyelt mappája: ${invoiceInbox.getSettings().inbox_dir}`);
+  console.log(`  (az ide mentett PDF-eket az app percenként beolvassa; a Számlák oldalon módosítható)`);
   console.log(`\n  Kvikk Connect (Chrome-bővítmény) beállításaihoz:`);
   console.log(`  → Backend URL:      http://localhost:${HTTP_PORT}  (vagy a lenti hálózati cím)`);
   console.log(`  → Extension token:  ${kvikkConfig.extensionToken}`);
