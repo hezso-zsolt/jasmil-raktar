@@ -16,6 +16,14 @@ másold rá (vagy hasonlítsd össze fájlonként) — az új fájlok:
 `routes/kvikkWebhook.js`, valamint a `db/schema.sql` és `server.js`
 módosult (két új tábla, három új route bekötve).
 
+## Frissítés és indítás egy kattintással (Windows)
+
+A repó gyökerében lévő **`frissites.bat`** fájlra duplán kattintva a gép
+letölti a legújabb verziót (`git pull`), ellenőrzi a csomagokat
+(`npm install`), majd elindítja az appot. Előtte a futó appot állítsd le.
+Kényelmes, ha az Asztalra teszel róla egy parancsikont (jobb klikk →
+*Küldés* → *Asztal (parancsikon létrehozása)*).
+
 ## Telepítés / indítás
 
 ```bash
