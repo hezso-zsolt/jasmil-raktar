@@ -2675,7 +2675,7 @@ async function loadInvoiceSettings() {
       const at = new Date(last.at).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
       info.textContent = last.errors.length
         ? `Utolsó beolvasás ${at}: ${last.errors.join(' · ')}`
-        : `Utolsó beolvasás: ${at} (az app percenként újra megnézi a mappát)`;
+        : `Utolsó beolvasás: ${at}`;
       info.classList.toggle('invoice-scan-error', last.errors.length > 0);
     }
     return s;
@@ -3005,14 +3005,6 @@ document.getElementById('btn-invoice-clear-filters').addEventListener('click', (
   setInvoiceStatusFilter('all');
 });
 
-// A háttérben (a figyelt mappából) érkező számlák miatt percenként frissítjük
-// a menü jelvényét, és ha épp a Számlák oldal van nyitva (ablak nélkül), a listát is.
-setInterval(() => {
-  const onInvoices = !document.getElementById('view-invoices').classList.contains('hidden');
-  const modalOpen = document.getElementById('modal-root').children.length > 0;
-  if (onInvoices && !modalOpen) loadInvoices();
-  else updateInvoicesBadge();
-}, 60 * 1000);
 
 // ---------- Mobilos táblázat-címkék ----------
 // Keskeny kijelzőn a táblázat-sorok kártyákként jelennek meg (style.css),

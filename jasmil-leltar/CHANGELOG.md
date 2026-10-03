@@ -6,6 +6,16 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.40.1 — Számlák: beolvasás csak gombnyomásra
+
+- Az app **nem nézi többé percenként** a számla-mappát. A mappába mentett
+  PDF-eket a Számlák oldalon a **Mappa beolvasása** gombbal lehet
+  beolvastatni, amikor szükség van rá.
+- A Számlák oldal sem frissül magától percenként, a menü jelvénye az oldal
+  megnyitásakor és beolvasáskor frissül.
+
+---
+
 ## 1.40.0 — Bejövő számlák
 
 - Új oldal a menüben: **Számlák**. Itt tartható nyilván minden beérkező

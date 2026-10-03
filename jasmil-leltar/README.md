@@ -210,8 +210,8 @@ A **Számlák** oldalon a beérkező (szállítói) számlák tarthatók nyilvá
 
 1. A letöltött számla-PDF-eket egy **figyelt mappába** kell menteni
    (alapból `data/szamlak-bejovo`, a Számlák oldal **Beállítások** gombjával
-   bármelyik mappára átállítható). Az app percenként átnézi a mappát, de a
-   **Mappa beolvasása most** gombbal azonnal is beolvastatható. PDF a
+   bármelyik mappára átállítható), majd a **Mappa beolvasása** gombbal
+   beolvastatni. Az app magától, a háttérben nem nézi a mappát. PDF a
    böngészőből is feltölthető.
 2. Minden új PDF-ből az app **helyben** (internet nélkül) kiolvassa a
    szállítót, az adószámát, a számlaszámot, a kiállítás / teljesítés

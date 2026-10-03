@@ -140,9 +140,8 @@ async function start() {
   console.log(`  (ezt a mappát érdemes a NAS-ra menteni, pl. Synology Drive Clienttel)`);
 
   const invoiceInbox = require('./lib/invoiceInbox');
-  invoiceInbox.startInboxWatcher();
-  console.log(`\n  Bejövő számlák figyelt mappája: ${invoiceInbox.getSettings().inbox_dir}`);
-  console.log(`  (az ide mentett PDF-eket az app percenként beolvassa; a Számlák oldalon módosítható)`);
+  console.log(`\n  Bejövő számlák mappája: ${invoiceInbox.getSettings().inbox_dir}`);
+  console.log(`  (a Számlák oldalon a "Mappa beolvasása" gombbal olvasható be, ott módosítható is)`);
   console.log(`\n  Kvikk Connect (Chrome-bővítmény) beállításaihoz:`);
   console.log(`  → Backend URL:      http://localhost:${HTTP_PORT}  (vagy a lenti hálózati cím)`);
   console.log(`  → Extension token:  ${kvikkConfig.extensionToken}`);
