@@ -172,6 +172,7 @@ CREATE TABLE IF NOT EXISTS shoprenter_orders (
   cod_amount REAL,
   picked_at TEXT,                       -- mikor jelölték összekészítettnek (NULL = még nincs kész)
   stock_deducted_at TEXT,               -- mikor könyvelték le a készletcsökkentést (NULL = még nincs könyvelve)
+  verified_at TEXT,                     -- mikor stimmelt hiánytalanul a vonalkódos visszaellenőrzés (NULL = nincs / eltér)
   imported_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -202,6 +203,22 @@ CREATE TABLE IF NOT EXISTS order_stock_deductions (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_order_stock_deductions_order ON order_stock_deductions(order_id);
+
+-- Összekészítés utáni vonalkódos visszaellenőrzés: minden beolvasás egy sor.
+-- Szándékosan nem a rendelés tételeihez (shoprenter_order_items.id) kötjük,
+-- mert a rendelés újraimportálásakor a tételek újraíródnak - az összevetés
+-- mindig a beolvasott termék (product_id) vagy kód alapján, frissen készül.
+-- A rendelésben nem szereplő / ismeretlen kódokat is eltároljuk, hogy a
+-- felület meg tudja mutatni, mi került tévesen a csomagba.
+CREATE TABLE IF NOT EXISTS order_verify_scans (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id INTEGER NOT NULL REFERENCES shoprenter_orders(id) ON DELETE CASCADE,
+  code TEXT,                            -- a beolvasott (vagy kézzel jóváhagyott tételnél a cikkszám)
+  product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+  manual INTEGER NOT NULL DEFAULT 0,    -- 1 = vonalkód nélkül, kézzel pipálva
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_order_verify_scans_order ON order_verify_scans(order_id);
 
 -- ============================================================
 -- Dobozonkénti újraszámolás (leltár-korrekció)

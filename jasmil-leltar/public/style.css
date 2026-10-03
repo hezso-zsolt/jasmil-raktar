@@ -252,6 +252,10 @@ input[type="checkbox"] { accent-color: var(--accent); }
   background: rgba(255,255,255,.15); border: none; color: white;
   width: 34px; height: 34px; border-radius: 50%; font-size: 16px; cursor: pointer;
 }
+.camera-overlay-status {
+  position: absolute; left: 12px; right: 12px; bottom: 16px; z-index: 2; margin: 0;
+}
+.camera-overlay-status .verify-feedback-detail { color: inherit; opacity: .85; }
 .camera-frame-hint {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   width: 70%; max-width: 320px; aspect-ratio: 1.6;
@@ -669,3 +673,20 @@ tr.row-size-mismatch:hover td { background: var(--bad-bg); }
   .table tbody tr:hover td { background: transparent; }
   tr.row-size-mismatch { background: var(--bad-bg) !important; }
 }
+
+/* ---------- Vonalkódos visszaellenőrzés (rendelés-összekészítés után) ---------- */
+/* Nagy, színes visszajelzés, hogy a csomagoló fél szemmel is lássa, ha
+   valami nem stimmel. */
+.verify-feedback {
+  margin-top: 12px; padding: 14px 16px; border-radius: 10px;
+  border-left: 8px solid transparent;
+}
+.verify-feedback.verify-ok { background: var(--ok-bg); border-left-color: var(--ok); color: var(--ok); }
+.verify-feedback.verify-bad { background: var(--bad-bg); border-left-color: var(--bad); color: var(--bad); animation: verify-flash 0.5s ease-out; }
+.verify-feedback-title { font-size: 20px; font-weight: 700; }
+.verify-feedback-detail { margin-top: 4px; font-size: 14px; color: var(--ink); }
+@keyframes verify-flash { from { background: #F6B8B1; } to { background: var(--bad-bg); } }
+
+tr.verify-row-ok td { color: var(--ink-soft); }
+tr.verify-row-bad, tr.verify-row-bad td { background: var(--bad-bg); }
+tr.verify-row-bad:hover td { background: var(--bad-bg); }
