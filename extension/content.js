@@ -22,6 +22,74 @@ function isOrderDetailPage() {
   );
 }
 
+/**
+ * Elhagyott kosár-e a megnyitott oldal?
+ *
+ * A Shoprenterben minden kosárba tétel "Elhagyott kosár" állapotú
+ * rendelésként kezdi, és csak a sikeres vásárlás után lesz belőle valódi
+ * rendelés. Az elhagyott kosár részletező oldala ugyanúgy néz ki, mint egy
+ * rendelésé (ugyanazok a data-test-id mezők), ezért a bővítmény eddig ezeket
+ * is beküldte a leltár app "Rendelések" listájába - ez megtévesztő volt.
+ *
+ * Több jelet is nézünk, mert az elhagyott kosár oldal pontos HTML-jét nem
+ * ismerjük:
+ *  - az állapot (státusz) mező szövege "Elhagyott kosár",
+ *  - van "Rendelés befejezése" gomb (ez csak elhagyott kosárnál látszik),
+ *  - egy rövid felirat/címke pontosan "Elhagyott kosár" (a bal oldali menü
+ *    "Elhagyott kosarak" pontja és a legördülő listák opciói nem számítanak).
+ */
+const ABANDONED_CART_RE = /elhagyott\s+kos[áa]r(?![a-záéíóöőúüű])/i;
+// Ezeken belül nem keresünk: menük, legördülő opciók, és az állapot-előzmények
+// (egy rendes rendelés előzményeiben is szerepelhet a korábbi "Elhagyott kosár").
+const MENU_CONTAINERS = [
+  "nav", '[role="listbox"]', '[role="menu"]', '[role="option"]', ".v-menu__content",
+  ".v-navigation-drawer", ".v-list", "select", "#jkc-panel",
+  '[data-test-id*="history" i]', '[class*="history" i]',
+].join(", ");
+
+function isAbandonedCartPage() {
+  for (const el of document.querySelectorAll('[data-test-id*="status" i]')) {
+    if (el.closest(MENU_CONTAINERS)) continue;
+    const text = `${el.value || ""} ${el.getAttribute("data-test-value") || ""} ${el.textContent || ""}`;
+    if (ABANDONED_CART_RE.test(text)) return true;
+  }
+
+  for (const el of document.querySelectorAll('button, a, [role="button"]')) {
+    if (el.closest("#jkc-panel")) continue;
+    if (/^rendelés\s+befejezése$/i.test((el.textContent || "").replace(/\s+/g, " ").trim())) return true;
+  }
+
+  for (const el of document.querySelectorAll("span, div, td, h1, h2, h3, label, .v-chip")) {
+    if (el.children.length > 2) continue;
+    const text = (el.textContent || "").replace(/\s+/g, " ").trim();
+    if (text.length > 40 || !ABANDONED_CART_RE.test(text)) continue;
+    if (el.closest(MENU_CONTAINERS)) continue;
+    return true;
+  }
+
+  return false;
+}
+
+// A felhasználó a bővítmény beállításaiban kérheti, hogy az elhagyott
+// kosarak is bekerüljenek a leltár appba (alapból nem).
+async function shouldImportAbandonedCarts() {
+  try {
+    const { importAbandonedCarts } = await chrome.storage.local.get({ importAbandonedCarts: false });
+    return !!importAbandonedCarts;
+  } catch (e) {
+    return false;
+  }
+}
+
+// A panel kulcsa: rendelésszám + elhagyott kosár jelzés. Így ha egy kosárból
+// a "Rendelés befejezése" után valódi rendelés lesz (ugyanazzal a számmal),
+// a panel újraépül, és a rendelés ekkor már bekerül a leltár appba.
+function currentPanelKey() {
+  const orderId = extractOrderNumber();
+  if (!orderId) return "";
+  return isAbandonedCartPage() ? `${orderId}:kosar` : orderId;
+}
+
 // ---------- Segédfüggvények ----------
 
 function textOf(selector) {
@@ -235,7 +303,8 @@ async function buildPanel() {
   // Megjegyezzük, melyik rendeléshez épült ez a panel, hogy a Shoprenter
   // Vue-alapú, oldalújratöltés nélküli rendelésváltásakor észrevegyük,
   // ha a panel már egy korábbi rendelés adatait mutatja (lásd init()).
-  panel.dataset.jkcOrderId = data.orderNumber || "";
+  const abandoned = isAbandonedCartPage();
+  panel.dataset.jkcOrderId = abandoned ? `${data.orderNumber}:kosar` : data.orderNumber || "";
   const header = el("div", { class: "jkc-header" }, [
     el("span", { class: "jkc-logo", text: "JASMIL" }),
     el("span", { class: "jkc-title", text: `Kvikk Connect — #${data.orderNumber || "?"}` }),
@@ -265,7 +334,7 @@ async function buildPanel() {
   // Ha a lekérdezés alatt a felhasználó továbblapozott egy másik rendelésre,
   // ez a panel már elavult - eldobjuk, hogy soha ne mutasson egy másik
   // rendelés adatait, és az init() majd felépíti a helyeset.
-  if (extractOrderNumber() !== data.orderNumber) {
+  if (currentPanelKey() !== panel.dataset.jkcOrderId) {
     panel.remove();
     return;
   }
@@ -274,7 +343,9 @@ async function buildPanel() {
   // menüpont komissiózó listáján (melyik termék melyik dobozban van).
   // Ez csak adatrögzítés, nem jár Kvikk-költséggel, ezért a háttérben fut,
   // és ha nem sikerül, az nem akadályozza a címke létrehozását.
-  if (data.items && data.items.length) {
+  // Elhagyott kosarat alapból NEM küldünk be: az nem valódi rendelés.
+  const skipImport = abandoned && !(await shouldImportAbandonedCarts());
+  if (data.items && data.items.length && !skipImport) {
     sendToBackground("IMPORT_ORDER", {
       shoprenter_order_id: data.orderNumber,
       customer_name: data.customerName,
@@ -292,6 +363,17 @@ async function buildPanel() {
   }
 
   body.innerHTML = "";
+
+  if (abandoned) {
+    body.appendChild(
+      el("div", {
+        class: "jkc-alert jkc-alert-warn",
+        text: skipImport
+          ? "🛒 Ez egy elhagyott kosár, nem valódi rendelés – nem került be a leltár app Rendelések listájába."
+          : "🛒 Ez egy elhagyott kosár, nem valódi rendelés (a beállítások szerint ettől még bekerült a Rendelések közé).",
+      })
+    );
+  }
 
   if (existing) {
     renderExistingView(body, existing);
@@ -584,12 +666,12 @@ async function init() {
   if (isBuilding) return;
   if (!isOrderDetailPage()) return;
 
-  const currentOrderId = extractOrderNumber();
-  if (!currentOrderId) return;
+  const currentKey = currentPanelKey();
+  if (!currentKey) return;
 
   const existingPanel = document.getElementById("jkc-panel");
   if (existingPanel) {
-    if (existingPanel.dataset.jkcOrderId === currentOrderId) return; // ugyanaz a rendelés, nincs teendő
+    if (existingPanel.dataset.jkcOrderId === currentKey) return; // ugyanaz a rendelés, nincs teendő
     existingPanel.remove(); // rendelésváltás történt -> újraépítés
   }
 
