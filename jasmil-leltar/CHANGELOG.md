@@ -6,6 +6,21 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## Bővítmény 0.9.2 — elhagyott kosarak kiszűrése
+
+- A Chrome-bővítmény mostantól felismeri a Shoprenter **elhagyott kosarait**
+  (ezek ugyanúgy néznek ki, mint egy rendelés), és alapból **nem küldi be**
+  őket a leltár app Rendelések listájába. A Kvikk panel tetején egy sárga
+  sáv jelzi, hogy elhagyott kosárról van szó.
+- Ha egy kosárból a „Rendelés befejezése” gombbal valódi rendelés lesz, a
+  rendelés ekkor már rendben bekerül.
+- A bővítmény beállításaiban (ikonra kattintva) bekapcsolható, ha mégis be
+  kell olvasni az elhagyott kosarakat is.
+- A korábban már bekerült elhagyott kosarakat a Rendelések listából kézzel
+  kell törölni.
+
+---
+
 ## 1.41.0 — Számlák: gyorsabb utalás
 
 - A számla-PDF-ből az app mostantól a **szállító bankszámlaszámát** is

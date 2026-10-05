@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Jasmil – Kvikk Connect",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Kvikk csomag és futárcímke létrehozása közvetlenül a Shoprenter admin rendelés oldaláról, Gold-váltás nélkül.",
   "action": {
     "default_popup": "popup.html",

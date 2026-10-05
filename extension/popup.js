@@ -2,11 +2,13 @@ const DEFAULT_SETTINGS = {
   backendUrl: "http://localhost:3000",
   extensionToken: "",
   defaultWeightKg: 1.0,
+  importAbandonedCarts: false,
 };
 
 const backendUrlInput = document.getElementById("backendUrl");
 const extensionTokenInput = document.getElementById("extensionToken");
 const defaultWeightInput = document.getElementById("defaultWeight");
+const importAbandonedInput = document.getElementById("importAbandonedCarts");
 const statusDot = document.getElementById("status-dot");
 const statusText = document.getElementById("status-text");
 
@@ -16,6 +18,7 @@ async function loadSettings() {
   backendUrlInput.value = settings.backendUrl;
   extensionTokenInput.value = settings.extensionToken;
   defaultWeightInput.value = settings.defaultWeightKg;
+  importAbandonedInput.checked = !!settings.importAbandonedCarts;
   return settings;
 }
 
@@ -24,6 +27,7 @@ async function saveSettings() {
     backendUrl: backendUrlInput.value.trim() || DEFAULT_SETTINGS.backendUrl,
     extensionToken: extensionTokenInput.value.trim(),
     defaultWeightKg: Number(defaultWeightInput.value) || DEFAULT_SETTINGS.defaultWeightKg,
+    importAbandonedCarts: importAbandonedInput.checked,
   };
   await chrome.storage.local.set(settings);
   return settings;
