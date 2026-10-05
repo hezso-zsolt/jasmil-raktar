@@ -375,20 +375,25 @@ function detectCurrency(fullText) {
 
 const close = (a, b) => Math.abs(a - b) <= Math.max(1, Math.abs(b) * 0.001);
 
-/** Az "Összesen: nettó áfa bruttó" sorból a hármas, ahol nettó + áfa = bruttó */
+/**
+ * Az "Összesen: nettó áfa bruttó" sorból a hármas, ahol nettó + áfa = bruttó.
+ * Az "Összesen" / "Total" feliratú sorok előnyt élveznek (onTotalLine); ha
+ * több ilyen van (pl. tételsor-összesítő és ÁFA-összesítő), a legnagyobb.
+ */
 function findTotalsTriple(lines) {
   let best = null;
   lines.forEach((line) => {
     const nums = findAmounts(line.text);
     if (nums.length < 3) return;
-    const isTotalLine = /összesen|total|mindösszesen|végösszeg/i.test(line.text);
+    const onTotalLine = /összesen|total|mindösszesen|végösszeg/i.test(line.text);
     for (let i = 0; i < nums.length; i++) {
       for (let j = i + 1; j < nums.length; j++) {
         for (let k = j + 1; k < nums.length; k++) {
           const [n, v, g] = [nums[i], nums[j], nums[k]];
-          if (g > 0 && n > 0 && v >= 0 && close(n + v, g)) {
-            const score = (isTotalLine ? 1e12 : 0) + g;
-            if (!best || score > best.score) best = { net: n, vat: v, gross: g, score };
+          // Itt szigorú egyezés kell: a laza tűrés véletlen hármasokat is elfogadna
+          if (g > 0 && n > 0 && v >= 0 && Math.abs(n + v - g) < 0.015) {
+            const score = (onTotalLine ? 1e12 : 0) + g;
+            if (!best || score > best.score) best = { net: n, vat: v, gross: g, score, onTotalLine };
           }
         }
       }
@@ -447,14 +452,27 @@ async function extractInvoice(buffer, opts = {}) {
     || parsePaymentMethod(result.text);
   result.currency = detectCurrency(result.text);
 
-  // Összegek: a kifejezett címkék az elsődlegesek, az "Összesen" sor hármasa a tartalék
-  let gross = findByLabel(lines, LABELS.gross, parseLastAmount, { lastOnLine: true, below: 1 });
-  let net = findByLabel(lines, LABELS.net, parseLastAmount, { lastOnLine: true, below: 1 });
-  let vat = findByLabel(lines, LABELS.vat, parseLastAmount, { lastOnLine: true, below: 1 });
+  // Összegek. A legmegbízhatóbb az "Összesen" sor nettó + ÁFA = bruttó
+  // hármasa; a címkéket ("Fizetendő:", "Nettó összesen:") csak ugyanabban a
+  // sorban keressük, mert a táblázatfejlécek ("Nettó összeg (Ft)") alatt
+  // egy-egy tételsor összege állna, nem a végösszeg.
+  let gross = findByLabel(lines, LABELS.gross, parseLastAmount, { lastOnLine: true, below: 0 });
+  let net = findByLabel(lines, LABELS.net, parseLastAmount, { lastOnLine: true, below: 0 });
+  let vat = findByLabel(lines, LABELS.vat, parseLastAmount, { lastOnLine: true, below: 0 });
   const triple = findTotalsTriple(lines);
-  if (triple) {
-    if (gross === null || close(triple.gross, gross)) {
-      gross = triple.gross;
+  if (triple && triple.onTotalLine) {
+    net = triple.net;
+    vat = triple.vat;
+    // A "Fizetendő" összeg gyakran kerekítve szerepel (4 112,02 → 4 112 Ft) -
+    // ilyenkor a ténylegesen fizetendő, kerekített összeget tartjuk meg.
+    if (gross === null || Math.abs(gross - triple.gross) >= 1) gross = triple.gross;
+  } else {
+    // Felül címke, alatta érték elrendezés (pl. "Fizetendő összeg" fejléc)
+    if (gross === null) gross = findByLabel(lines, LABELS.gross, parseLastAmount, { lastOnLine: true, below: 1 });
+    if (net === null) net = findByLabel(lines, LABELS.net, parseLastAmount, { lastOnLine: true, below: 1 });
+    if (vat === null) vat = findByLabel(lines, LABELS.vat, parseLastAmount, { lastOnLine: true, below: 1 });
+    if (triple && (gross === null || close(triple.gross, gross))) {
+      if (gross === null) gross = triple.gross;
       if (net === null) net = triple.net;
       if (vat === null) vat = triple.vat;
     }

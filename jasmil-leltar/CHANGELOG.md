@@ -6,6 +6,22 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.40.1 — Számlák: beolvasás csak gombnyomásra, pontosabb összegek
+
+- Az app **nem nézi többé percenként** a számla-mappát. A mappába mentett
+  PDF-eket a Számlák oldalon a **Mappa beolvasása** gombbal lehet
+  beolvastatni, amikor szükség van rá.
+- A Számlák oldal sem frissül magától percenként, a menü jelvénye az oldal
+  megnyitásakor és beolvasáskor frissül.
+- **Pontosabb összegfelismerés:** ha a számlán tételes táblázat van
+  („Nettó összeg (Ft)”, „Bruttó összeg (Ft)” oszlopokkal), az app eddig az
+  első tételsor összegét vehette végösszegnek. Mostantól az „Összesen” sor
+  nettó + ÁFA = bruttó összegét használja, a kerekített „Fizetendő”
+  összeggel (pl. Opennetworks telefonszámla: nettó 3 237,81, ÁFA 874,21,
+  fizetendő 4 112 Ft).
+
+---
+
 ## 1.40.0 — Bejövő számlák
 
 - Új oldal a menüben: **Számlák**. Itt tartható nyilván minden beérkező

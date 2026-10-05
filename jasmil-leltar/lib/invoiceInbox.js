@@ -7,9 +7,10 @@ const { extractInvoice, taxKey } = require('./invoiceExtract');
 /**
  * Bejövő számlák beolvasása.
  *
- * - Egy beállítható mappát (alapból data/szamlak-bejovo) percenként
- *   átnézünk; minden új PDF-ből kiolvassuk az adatokat, és "ellenőrizendő"
- *   állapotú számlaként felvesszük.
+ * - Egy beállítható mappát (alapból data/szamlak-bejovo) a felületen a
+ *   "Mappa beolvasása" gombra átnézünk (automatikusan, a háttérben nem);
+ *   minden új PDF-ből kiolvassuk az adatokat, és "ellenőrizendő" állapotú
+ *   számlaként felvesszük.
  * - A PDF egy másolata a data/szamlak/<év>/ mappába kerül (ezt a napi mentés
  *   is átviszi), az eredeti fájlt pedig a figyelt mappán belüli
  *   "feldolgozott" almappába tesszük át, hogy látszódjon, mi van már kész.
@@ -20,9 +21,8 @@ const DATA_DIR = path.join(__dirname, '..', 'data');
 const STORE_DIR = path.join(DATA_DIR, 'szamlak');
 const DEFAULT_INBOX_DIR = path.join(DATA_DIR, 'szamlak-bejovo');
 const PROCESSED_SUBDIR = 'feldolgozott';
-const SCAN_INTERVAL_MS = 60 * 1000;
 // Az épp letöltés alatt álló fájlt még nem bántjuk
-const MIN_FILE_AGE_MS = 5 * 1000;
+const MIN_FILE_AGE_MS = 3 * 1000;
 
 // ---------- Beállítások ----------
 
@@ -210,13 +210,6 @@ function getLastScan() {
   return lastScan;
 }
 
-function startInboxWatcher() {
-  scanInbox().catch((e) => console.error('[számlák] Beolvasási hiba:', e.message));
-  setInterval(() => {
-    scanInbox().catch((e) => console.error('[számlák] Beolvasási hiba:', e.message));
-  }, SCAN_INTERVAL_MS).unref();
-}
-
 module.exports = {
   STORE_DIR,
   DEFAULT_INBOX_DIR,
@@ -227,5 +220,4 @@ module.exports = {
   storedFilePath,
   scanInbox,
   getLastScan,
-  startInboxWatcher,
 };
