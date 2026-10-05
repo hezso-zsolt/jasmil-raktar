@@ -6,6 +6,16 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.41.1 — Rendelés törlése
+
+- A **Rendelések** listában minden rendelés mellett új **„Törlés”** gomb,
+  pl. a tévesen beolvasott elhagyott kosarak eltávolításához. A
+  Shoprenterben ettől semmi nem változik. Ha a rendeléshez már le van
+  könyvelve a készletcsökkentés, a gomb figyelmeztet, mert a törlés azt
+  nem állítja vissza.
+
+---
+
 ## Bővítmény 0.9.2 — elhagyott kosarak kiszűrése
 
 - A Chrome-bővítmény mostantól felismeri a Shoprenter **elhagyott kosarait**
@@ -16,8 +26,8 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
   rendelés ekkor már rendben bekerül.
 - A bővítmény beállításaiban (ikonra kattintva) bekapcsolható, ha mégis be
   kell olvasni az elhagyott kosarakat is.
-- A korábban már bekerült elhagyott kosarakat a Rendelések listából kézzel
-  kell törölni.
+- A korábban már bekerült elhagyott kosarakat a Rendelések listából kell
+  törölni (lásd 1.41.1).
 
 ---
 
