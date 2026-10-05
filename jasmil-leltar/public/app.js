@@ -2164,9 +2164,30 @@ async function loadOrders() {
             class: 'btn btn-primary',
             onclick: () => openPicking(order.id),
           }, 'Összekészítés'),
+          ' ',
+          el('button', {
+            class: 'btn btn-danger-outline btn-small',
+            onclick: () => deleteOrder(order),
+          }, 'Törlés'),
         ]),
       ])
     );
+  }
+}
+
+// Rendelés törlése a listából (pl. tévesen beolvasott elhagyott kosár).
+// A Shoprenterben semmi nem változik, csak a leltár app felejti el.
+async function deleteOrder(order) {
+  const warning = order.stock_deducted_at
+    ? ' Figyelem: ehhez a rendeléshez már le van könyvelve a készletcsökkentés. A törlés ezt NEM állítja vissza, előbb az összekészítésnél vond vissza a könyvelést, ha kell.'
+    : '';
+  if (!confirm(`Biztosan törlöd a #${order.shoprenter_order_id} rendelést a listából?${warning}`)) return;
+  try {
+    await api('DELETE', `/api/orders/${order.id}`);
+    toast('Rendelés törölve.');
+    loadOrders();
+  } catch (err) {
+    toast(err.message, 'err');
   }
 }
 
