@@ -45,11 +45,10 @@ function getSettings() {
     own_tax_numbers: splitList(getSetting('invoice_own_tax_numbers', '')),
     own_names: splitList(getSetting('invoice_own_names', 'Jasmil')),
     own_bank_account: getSetting('invoice_own_bank_account', ''),
-    payer_name: getSetting('invoice_payer_name', ''),
   };
 }
 
-function saveSettings({ inbox_dir, own_tax_numbers, own_names, own_bank_account, payer_name }) {
+function saveSettings({ inbox_dir, own_tax_numbers, own_names, own_bank_account }) {
   if (inbox_dir !== undefined) {
     const dir = String(inbox_dir || '').trim();
     if (!dir) throw new Error('Add meg a figyelt mappa útvonalát.');
@@ -66,7 +65,6 @@ function saveSettings({ inbox_dir, own_tax_numbers, own_names, own_bank_account,
     if (raw && !acc) throw new Error('A saját bankszámlaszám hibás (ellenőrizd a számjegyeket).');
     setSetting('invoice_own_bank_account', acc);
   }
-  if (payer_name !== undefined) setSetting('invoice_payer_name', String(payer_name || '').trim());
   return getSettings();
 }
 

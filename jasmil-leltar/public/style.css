@@ -661,6 +661,16 @@ tr.row-size-mismatch:hover td { background: var(--bad-bg); }
 .invoice-due-note.bad, .invoice-overdue { color: var(--bad); }
 .table .num-col { text-align: right; white-space: nowrap; }
 .invoice-actions { text-align: right; white-space: nowrap; }
+#invoices-table th, #invoices-table td { padding-left: 10px; padding-right: 10px; }
+
+.pay-card { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; margin-top: 10px; }
+.pay-card.done { opacity: 0.55; }
+.pay-card-head { margin-bottom: 6px; }
+.pay-row { display: grid; grid-template-columns: 130px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 3px 0; }
+.pay-label { color: var(--ink-soft); font-size: 13px; }
+.pay-value { overflow-wrap: anywhere; }
+.pay-card-actions { text-align: right; margin-top: 6px; }
+@media (max-width: 640px) { .pay-row { grid-template-columns: minmax(0, 1fr) auto; } .pay-label { grid-column: 1 / -1; } }
 
 .modal.modal-invoice { width: 640px; max-width: 94vw; max-height: 92vh; overflow-y: auto; }
 .modal.modal-invoice.has-pdf { width: 1180px; }

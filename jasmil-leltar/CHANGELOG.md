@@ -6,25 +6,25 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
-## 1.41.0 — Számlák: csoportos utalási fájl
+## 1.41.0 — Számlák: gyorsabb utalás
 
 - A számla-PDF-ből az app mostantól a **szállító bankszámlaszámát** is
   kiolvassa (ellenőrzi a számjegyeket is), és a szállítónál megjegyzi. A
   számla adatainál kézzel is megadható vagy javítható.
-- A Számlák listában a fizetendő számlák **kijelölhetők**, és a
-  **„Utalási fájl a kijelöltekből”** gomb egyetlen fájlba teszi az összes
-  kijelölt utalást (kedvezményezett, bankszámlaszám, összeg, közleményben a
-  számlaszám). Ezt a fájlt kell az OTP internetbankban a csoportos
-  átutalásnál feltölteni, és ott egyben jóváhagyni.
-- A fájl szabványos XML (ISO 20022 „pain.001”) formátumú, amit a magyar
-  bankok internetbankjai általában elfogadnak.
-- Ha egy kijelölt számlához hiányzik a bankszámlaszám, nem forintos, vagy a
-  saját adatok nincsenek megadva, az app nem készít fájlt, hanem felsorolja,
-  mit kell pótolni.
-- A **Beállítások** ablakban meg kell adni a saját (OTP-s) bankszámlaszámot
-  és a számlatulajdonos nevét, ezekről indul az utalás.
-- Új gomb: **„Kijelöltek: kifizetve”**. Ha az OTP-ben jóváhagytad az
-  utalásokat, ezzel egyszerre jelölheted őket kifizetettnek.
+- A fizetendő számlák mellett új **„Utalás”** gomb: egy ablakban mutatja a
+  kedvezményezett nevét, a bankszámlaszámot, az összeget és a közleményt
+  (a számla sorszáma), mindegyik mellett **Másolás** gombbal. Az OTP
+  internetbankban az új átutalás mezőibe csak be kell illeszteni őket.
+- A fizetendő számlák **kijelölhetők**, és az **„Utalás a kijelöltekből”**
+  gomb egyszerre mutatja az összes kijelölt számla utalási adatait.
+- Az utalási ablakban a **„Kifizetve”** gombbal azonnal kifizetettnek
+  jelölhető a számla (a listából ezért kikerült a külön Kifizetve gomb).
+- Ha hiányzik a bankszámlaszám vagy az összeg, vagy a számla nem forintos,
+  az ablak figyelmeztet.
+- Új gomb: **„Kijelöltek: kifizetve”**, több számla egyszerre kifizetettnek
+  jelöléséhez.
+- A **Beállítások** ablakban megadható a saját bankszámlaszám, így az app
+  nem keveri össze a szállítóéval.
 
 ---
 

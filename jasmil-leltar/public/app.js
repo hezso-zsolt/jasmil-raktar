@@ -2717,7 +2717,8 @@ async function loadInvoices() {
     if (inv.status === 'ellenorizendo') {
       actions.push(el('button', { class: 'btn btn-primary btn-small', onclick: (e) => { e.stopPropagation(); openInvoiceModal(inv.id); } }, 'Átnézés'));
     } else if (inv.status === 'fizetendo') {
-      actions.push(el('button', { class: 'btn btn-ghost btn-small', onclick: (e) => { e.stopPropagation(); markInvoicePaid(inv); } }, '✓ Kifizetve'));
+      // A kifizetettnek jelölés az utalási ablakból (vagy a kijelöltekre egyben) megy
+      actions.push(el('button', { class: 'btn btn-primary btn-small', onclick: (e) => { e.stopPropagation(); openPaymentHelper([inv.id]); } }, 'Utalás'));
     }
     const supplierCell = [el('div', { class: 'invoice-supplier' }, inv.supplier_name || '(ismeretlen szállító)')];
     if (inv.status === 'ellenorizendo' && inv.extract_warnings.length) {
@@ -2762,11 +2763,11 @@ let visiblePayableInvoiceIds = [];
 
 function updateInvoiceSelectionUi() {
   const n = invoiceSelection.size;
-  const fileBtn = document.getElementById('btn-invoice-payment-file');
+  const payBtn = document.getElementById('btn-invoice-pay-helper');
   const paidBtn = document.getElementById('btn-invoice-mark-paid');
-  fileBtn.disabled = n === 0;
+  payBtn.disabled = n === 0;
   paidBtn.disabled = n === 0;
-  fileBtn.textContent = n ? `Utalási fájl (${n} számla)` : 'Utalási fájl a kijelöltekből';
+  payBtn.textContent = n ? `Utalás a kijelöltekből (${n})` : 'Utalás a kijelöltekből';
   paidBtn.textContent = n ? `Kijelöltek: kifizetve (${n})` : 'Kijelöltek: kifizetve';
   const all = document.getElementById('invoice-select-all');
   all.checked = visiblePayableInvoiceIds.length > 0 && visiblePayableInvoiceIds.every((id) => invoiceSelection.has(id));
@@ -2779,38 +2780,105 @@ document.getElementById('invoice-select-all').addEventListener('change', (e) => 
   updateInvoiceSelectionUi();
 });
 
-document.getElementById('btn-invoice-payment-file').addEventListener('click', async () => {
-  const ids = [...invoiceSelection];
+document.getElementById('btn-invoice-pay-helper').addEventListener('click', () => openPaymentHelper([...invoiceSelection]));
+
+/** Szöveg vágólapra; http-n (pl. másik gépről, Tailscale-en át) a régi módszerrel. */
+async function copyText(text) {
   try {
-    const res = await fetch('/api/invoices/payment-file', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      if (data.problems && data.problems.length) {
-        openContentModal('Az utalási fájl nem készült el', el('div', {}, [
-          el('p', { class: 'hint' }, 'Ezeket kell előbb rendbe tenni (a számlát megnyitva javítható):'),
-          el('ul', { class: 'invoice-warnings' }, data.problems.map((p) => el('li', {}, p))),
-        ]));
-      } else {
-        toast(data.error || `Hiba (${res.status})`, 'err');
-      }
-      return;
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
     }
-    const blob = await res.blob();
-    const name = (res.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/);
-    const a = el('a', { href: URL.createObjectURL(blob), download: name ? name[1] : 'utalas.xml' });
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-    toast(`Utalási fájl letöltve (${ids.length} számla). Töltsd fel az OTP internetbankba, és jóváhagyás után jelöld őket kifizetettnek.`);
+  } catch { /* lent a tartalék módszer */ }
+  const ta = el('textarea', { style: 'position:fixed;left:-9999px;top:0' });
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { ok = false; }
+  ta.remove();
+  return ok;
+}
+
+function copyRow(label, shown, value) {
+  const btn = el('button', { class: 'btn btn-ghost btn-small' }, 'Másolás');
+  btn.addEventListener('click', async () => {
+    if (await copyText(value)) {
+      btn.textContent = '✓ Másolva';
+      setTimeout(() => { btn.textContent = 'Másolás'; }, 1500);
+    } else {
+      toast('Nem sikerült másolni, jelöld ki és másold kézzel.', 'err');
+    }
+  });
+  return el('div', { class: 'pay-row' }, [
+    el('span', { class: 'pay-label' }, label),
+    el('span', { class: 'pay-value mono' }, shown),
+    btn,
+  ]);
+}
+
+/**
+ * Utalási adatok a kijelölt számlákhoz, mezőnként másolható formában, hogy
+ * az OTP internetbankban (új forint átutalás) csak be kelljen illeszteni őket.
+ */
+async function openPaymentHelper(ids) {
+  if (!ids.length) return;
+  let invoices;
+  try {
+    invoices = await Promise.all(ids.map((id) => api('GET', `/api/invoices/${id}`)));
   } catch (err) {
     toast(err.message, 'err');
+    return;
   }
-});
+  let changed = false;
+  const cards = invoices.map((inv) => {
+    const currency = inv.currency || 'HUF';
+    const amount = currency === 'HUF' ? Math.round(inv.gross_amount || 0) : inv.gross_amount;
+    const reference = inv.invoice_number || '';
+    const rows = [copyRow('Kedvezményezett', inv.supplier_name || '—', inv.supplier_name || '')];
+    if (inv.bank_account) rows.push(copyRow('Számlaszám', inv.bank_account, inv.bank_account.replace(/-/g, '')));
+    else rows.push(el('div', { class: 'invoice-due-note bad' }, '⚠ Nincs meg a szállító bankszámlaszáma. Nyisd meg a számlát, és írd be (a PDF-en általában ott van).'));
+    if (amount) rows.push(copyRow('Összeg', fmtMoney(amount, currency), String(amount)));
+    else rows.push(el('div', { class: 'invoice-due-note bad' }, '⚠ Nincs összeg a számlán.'));
+    if (currency !== 'HUF') rows.push(el('div', { class: 'invoice-due-note bad' }, `⚠ Nem forintos számla (${currency}), ezt devizautalással kell fizetni.`));
+    rows.push(copyRow('Közlemény', reference || '—', reference));
+    const paidBtn = el('button', { class: 'btn btn-primary btn-small' }, '✓ Kifizetve');
+    const card = el('div', { class: 'pay-card' }, [
+      el('div', { class: 'pay-card-head' }, [
+        el('strong', {}, inv.supplier_name || '(ismeretlen szállító)'),
+        el('span', { class: 'hint' }, ` ${inv.invoice_number || ''}${inv.due_date ? ` · határidő: ${fmtDate(inv.due_date)}` : ''}`),
+      ]),
+      ...rows,
+      el('div', { class: 'pay-card-actions' }, paidBtn),
+    ]);
+    paidBtn.addEventListener('click', async () => {
+      try {
+        await api('POST', `/api/invoices/${inv.id}/pay`, { paid: true });
+        invoiceSelection.delete(inv.id);
+        changed = true;
+        card.classList.add('done');
+        paidBtn.disabled = true;
+        paidBtn.textContent = '✓ Kifizetettnek jelölve';
+      } catch (err) {
+        toast(err.message, 'err');
+      }
+    });
+    return card;
+  });
+  openContentModal(ids.length > 1 ? `Utalás: ${ids.length} számla` : 'Utalás', el('div', {}, [
+    el('p', { class: 'hint' }, 'Az OTP internetbankban indíts egy új forint átutalást, és a Másolás gombokkal töltsd ki a mezőket (beillesztés: Ctrl+V). Ha elküldted, nyomd meg a „Kifizetve” gombot.'),
+    ...cards,
+  ]));
+  // Bezáráskor frissül a lista, ha közben valamit kifizetettnek jelöltünk
+  const root = document.getElementById('modal-root');
+  const obs = new MutationObserver(() => {
+    if (!root.children.length) {
+      obs.disconnect();
+      if (changed) loadInvoices();
+    }
+  });
+  obs.observe(root, { childList: true });
+}
 
 document.getElementById('btn-invoice-mark-paid').addEventListener('click', async () => {
   const ids = [...invoiceSelection];
@@ -2828,16 +2896,6 @@ document.getElementById('btn-invoice-mark-paid').addEventListener('click', async
   if (ok) toast(`${ok} számla kifizetettnek jelölve.`);
   loadInvoices();
 });
-
-async function markInvoicePaid(inv) {
-  try {
-    await api('POST', `/api/invoices/${inv.id}/pay`, { paid: true });
-    toast(`Kifizetettnek jelölve: ${inv.supplier_name || ''} ${inv.invoice_number || ''}`.trim());
-    loadInvoices();
-  } catch (err) {
-    toast(err.message, 'err');
-  }
-}
 
 function invoiceField(label, input, { wide = false } = {}) {
   return el('div', { class: wide ? 'invoice-field wide' : 'invoice-field' }, [el('label', {}, label), input]);
@@ -3070,14 +3128,12 @@ document.getElementById('btn-invoice-settings').addEventListener('click', async 
     { id: 'set-inbox-dir', label: 'Figyelt mappa (ide mentsd a letöltött számla-PDF-eket, pl. C:\\Claude_RAKTAR\\szamlak)', type: 'text', value: s.inbox_dir },
     { id: 'set-own-tax', label: 'Saját adószám(ok), vesszővel elválasztva — így biztosan nem a saját cégünket veszi szállítónak', type: 'text', value: s.own_tax_numbers.join(', ') },
     { id: 'set-own-names', label: 'Saját cégnév (vagy részlete), vesszővel elválasztva', type: 'text', value: s.own_names.join(', ') },
-    { id: 'set-payer-name', label: 'Utaláshoz: a számlatulajdonos neve (pl. Hézső Zsolt EV)', type: 'text', value: s.payer_name || '' },
-    { id: 'set-own-account', label: 'Utaláshoz: a saját OTP-s bankszámlaszámod, erről megy az utalás', type: 'text', value: s.own_bank_account || '' },
+    { id: 'set-own-account', label: 'Saját bankszámlaszámod (így a számlán szereplő saját számládat nem veszi a szállítóénak)', type: 'text', value: s.own_bank_account || '' },
   ], async (vals) => {
     await api('PUT', '/api/invoices/settings', {
       inbox_dir: vals['set-inbox-dir'],
       own_tax_numbers: vals['set-own-tax'].split(',').map((x) => x.trim()).filter(Boolean),
       own_names: vals['set-own-names'].split(',').map((x) => x.trim()).filter(Boolean),
-      payer_name: vals['set-payer-name'],
       own_bank_account: vals['set-own-account'],
     });
     toast('Beállítások elmentve.');

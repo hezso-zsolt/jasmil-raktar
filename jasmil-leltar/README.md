@@ -226,12 +226,11 @@ A **Számlák** oldalon a beérkező (szállítói) számlák tarthatók nyilvá
    szállító, kategória, kiállítási dátum és szabad szöveg szerint, és a
    szűrt lista CSV-be (Excelben megnyitható) exportálható.
 
-**Csoportos utalás:** a fizetendő számlák kijelölhetők, és az
-**Utalási fájl a kijelöltekből** gomb egy szabványos (ISO 20022 pain.001)
-XML-fájlt készít belőlük, ami az internetbankban csoportos átutalásként
-tölthető fel. Ehhez a Beállítások ablakban meg kell adni a saját
-bankszámlaszámot és a számlatulajdonos nevét; a szállító bankszámlaszámát
-az app a PDF-ből olvassa ki.
+**Utalás:** a fizetendő számla melletti **Utalás** gomb (vagy több
+kijelölt számlánál az **Utalás a kijelöltekből** gomb) mezőnként másolható
+formában mutatja a kedvezményezettet, a bankszámlaszámot, az összeget és a
+közleményt, amit az internetbank új átutalásába csak be kell illeszteni. A
+szállító bankszámlaszámát az app a PDF-ből olvassa ki.
 
 A beszkennelt, csak képet tartalmazó PDF-ekből nem olvasható szöveg - ezeknél
 az adatokat kézzel kell kitölteni. A PDF-ek másolata a `data/szamlak/`

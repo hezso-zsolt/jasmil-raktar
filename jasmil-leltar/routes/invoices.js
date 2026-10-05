@@ -5,7 +5,7 @@ const { stringify } = require('csv-stringify/sync');
 const db = require('../db/database');
 const inbox = require('../lib/invoiceInbox');
 const { taxKey } = require('../lib/invoiceExtract');
-const { normalizeAccount, buildPain001 } = require('../lib/payment');
+const { normalizeAccount } = require('../lib/payment');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024, files: 50 } });
@@ -189,39 +189,6 @@ router.get('/export', (req, res) => {
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="szamlak_${today()}.csv"`);
   res.send('﻿' + csv);
-});
-
-// ---------- Csoportos utalási fájl ----------
-
-/**
- * A kijelölt fizetendő számlákból csoportos átutalási fájl (pain.001 XML).
- * Ha valamelyik számla nem utalható (nincs bankszámlaszám, nem forintos),
- * nem készül fájl, hanem a hibalistát adjuk vissza, hogy javítható legyen.
- */
-router.post('/payment-file', (req, res) => {
-  const ids = [...new Set(((req.body && req.body.ids) || []).map(Number).filter(Number.isInteger))];
-  if (!ids.length) return res.status(400).json({ error: 'Jelöld ki az utalandó számlákat.' });
-  const settings = inbox.getSettings();
-  const problems = [];
-  if (!settings.own_bank_account) problems.push('Add meg a saját (OTP-s) bankszámlaszámodat a Számlák → Beállítások ablakban.');
-  if (!settings.payer_name) problems.push('Add meg a számlatulajdonos nevét a Számlák → Beállítások ablakban.');
-  const items = [];
-  ids.forEach((id) => {
-    const inv = getInvoice(id);
-    if (!inv) return problems.push(`#${id}: ismeretlen számla.`);
-    const label = `${inv.supplier_name || '?'} ${inv.invoice_number || ''}`.trim();
-    if (inv.status !== 'fizetendo') return problems.push(`${label}: nem fizetendő állapotú.`);
-    if ((inv.currency || 'HUF') !== 'HUF') return problems.push(`${label}: nem forintos, ezt külön kell utalni.`);
-    if (!normalizeAccount(inv.bank_account)) return problems.push(`${label}: hiányzik a szállító bankszámlaszáma.`);
-    const amount = Math.round(inv.gross_amount || 0);
-    if (amount <= 0) return problems.push(`${label}: hiányzik az összeg.`);
-    items.push({ id: inv.id, name: inv.supplier_name, account: inv.bank_account, amount, reference: inv.invoice_number || label });
-  });
-  if (problems.length) return res.status(400).json({ error: 'Az utalási fájl nem készült el.', problems });
-  const xmlText = buildPain001({ debtorName: settings.payer_name, debtorAccount: settings.own_bank_account, items });
-  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="utalas_${today()}.xml"`);
-  res.send(xmlText);
 });
 
 // ---------- Egy számla ----------
