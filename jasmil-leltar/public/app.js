@@ -2866,7 +2866,7 @@ async function openPaymentHelper(ids) {
     return card;
   });
   openContentModal(ids.length > 1 ? `Utalás: ${ids.length} számla` : 'Utalás', el('div', {}, [
-    el('p', { class: 'hint' }, 'Az OTP internetbankban indíts egy új forint átutalást, és a Másolás gombokkal töltsd ki a mezőket (beillesztés: Ctrl+V). Ha elküldted, nyomd meg a „Kifizetve” gombot.'),
+    el('p', { class: 'hint' }, 'Az OTP internetbankban vagy a mobilbankban indíts egy új forint átutalást, és a Másolás gombokkal töltsd ki a mezőket (beillesztés). Ha elküldted, nyomd meg a „Kifizetve” gombot.'),
     ...cards,
   ]));
   // Bezáráskor frissül a lista, ha közben valamit kifizetettnek jelöltünk

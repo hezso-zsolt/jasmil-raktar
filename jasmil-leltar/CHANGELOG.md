@@ -14,7 +14,8 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 - A fizetendő számlák mellett új **„Utalás”** gomb: egy ablakban mutatja a
   kedvezményezett nevét, a bankszámlaszámot, az összeget és a közleményt
   (a számla sorszáma), mindegyik mellett **Másolás** gombbal. Az OTP
-  internetbankban az új átutalás mezőibe csak be kell illeszteni őket.
+  internetbankban vagy a telefonon (az appot a telefonon megnyitva) az OTP
+  MobilBankban az új átutalás mezőibe csak be kell illeszteni őket.
 - A fizetendő számlák **kijelölhetők**, és az **„Utalás a kijelöltekből”**
   gomb egyszerre mutatja az összes kijelölt számla utalási adatait.
 - Az utalási ablakban a **„Kifizetve”** gombbal azonnal kifizetettnek
