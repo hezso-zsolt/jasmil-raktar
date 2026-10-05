@@ -6,6 +6,28 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.41.0 — Számlák: csoportos utalási fájl
+
+- A számla-PDF-ből az app mostantól a **szállító bankszámlaszámát** is
+  kiolvassa (ellenőrzi a számjegyeket is), és a szállítónál megjegyzi. A
+  számla adatainál kézzel is megadható vagy javítható.
+- A Számlák listában a fizetendő számlák **kijelölhetők**, és a
+  **„Utalási fájl a kijelöltekből”** gomb egyetlen fájlba teszi az összes
+  kijelölt utalást (kedvezményezett, bankszámlaszám, összeg, közleményben a
+  számlaszám). Ezt a fájlt kell az OTP internetbankban a csoportos
+  átutalásnál feltölteni, és ott egyben jóváhagyni.
+- A fájl szabványos XML (ISO 20022 „pain.001”) formátumú, amit a magyar
+  bankok internetbankjai általában elfogadnak.
+- Ha egy kijelölt számlához hiányzik a bankszámlaszám, nem forintos, vagy a
+  saját adatok nincsenek megadva, az app nem készít fájlt, hanem felsorolja,
+  mit kell pótolni.
+- A **Beállítások** ablakban meg kell adni a saját (OTP-s) bankszámlaszámot
+  és a számlatulajdonos nevét, ezekről indul az utalás.
+- Új gomb: **„Kijelöltek: kifizetve”**. Ha az OTP-ben jóváhagytad az
+  utalásokat, ezzel egyszerre jelölheted őket kifizetettnek.
+
+---
+
 ## 1.40.1 — Számlák: beolvasás csak gombnyomásra, pontosabb összegek
 
 - Az app **nem nézi többé percenként** a számla-mappát. A mappába mentett

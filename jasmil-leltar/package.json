@@ -1,6 +1,6 @@
 {
   "name": "jasmil-leltar",
-  "version": "1.40.1",
+  "version": "1.41.0",
   "description": "Jasmil leltár- és raktárelhelyezési webalkalmazás",
   "main": "server.js",
   "scripts": {
