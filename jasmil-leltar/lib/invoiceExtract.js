@@ -15,6 +15,8 @@
  * PDF-ekből nem tud szöveget olvasni - ezt a "warnings" listában jelzi.
  */
 
+const { normalizeAccount } = require('./payment');
+
 let pdfjsPromise = null;
 function loadPdfjs() {
   // A pdf.js csak ES modulként érhető el, ezért dinamikusan töltjük be.
@@ -276,6 +278,32 @@ function findTaxNumbers(lines, buyerZones) {
   return found;
 }
 
+/**
+ * A szállító bankszámlaszáma: az első érvényes (ellenőrző számjegyes) magyar
+ * számlaszám vagy IBAN, ami nem a vevő oszlopában áll. A "Bankszámla" /
+ * "IBAN" feliratú cellák előnyt élveznek.
+ */
+function findBankAccount(lines, buyerZones) {
+  const candidates = [];
+  lines.forEach((line, li) => {
+    line.cells.forEach((cell, ci) => {
+      const isBuyerCell = /vevő|buyer|customer|előfizető|megrendelő/i.test(cell.text)
+        || buyerZones.some((z) => li > z.line && li <= z.line + 8 && line.page === z.page && cell.x < z.x2 && cell.x2 > z.x);
+      if (isBuyerCell) return;
+      const texts = [cell.text, `${cell.text} ${(line.cells[ci + 1] || {}).text || ''}`];
+      for (const t of texts) {
+        const acc = normalizeAccount(t);
+        if (acc) {
+          candidates.push({ acc, labeled: /bank|számlaszám|iban|account|giro/i.test(t) });
+          return;
+        }
+      }
+    });
+  });
+  const best = candidates.find((c) => c.labeled) || candidates[0];
+  return best ? best.acc : null;
+}
+
 /** A "Vevő" címke alatti oszlop - ami ott van, az a vevő (vagyis mi) adata */
 function findBuyerZones(lines) {
   const zones = [];
@@ -426,6 +454,7 @@ async function extractInvoice(buffer, opts = {}) {
     gross_amount: null,
     currency: 'HUF',
     payment_method: null,
+    bank_account: null,
     buyer_tax_numbers: [],
     warnings: [],
     text: '',
@@ -488,7 +517,9 @@ async function extractInvoice(buffer, opts = {}) {
   }
 
   // Felek: a "Vevő" oszlopában vagy a saját adószámunkkal egyező adószám a miénk
-  const taxes = findTaxNumbers(lines, findBuyerZones(lines));
+  const buyerZones = findBuyerZones(lines);
+  const taxes = findTaxNumbers(lines, buyerZones);
+  result.bank_account = findBankAccount(lines, buyerZones);
   taxes.forEach((t) => { if (ownKeys.includes(taxKey(t.tax))) t.buyer = true; });
   result.buyer_tax_numbers = [...new Set(taxes.filter((t) => t.buyer).map((t) => t.tax))];
   const buyerKeys = result.buyer_tax_numbers.map(taxKey);

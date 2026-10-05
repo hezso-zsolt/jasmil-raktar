@@ -6,6 +6,29 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.41.0 — Számlák: gyorsabb utalás
+
+- A számla-PDF-ből az app mostantól a **szállító bankszámlaszámát** is
+  kiolvassa (ellenőrzi a számjegyeket is), és a szállítónál megjegyzi. A
+  számla adatainál kézzel is megadható vagy javítható.
+- A fizetendő számlák mellett új **„Utalás”** gomb: egy ablakban mutatja a
+  kedvezményezett nevét, a bankszámlaszámot, az összeget és a közleményt
+  (a számla sorszáma), mindegyik mellett **Másolás** gombbal. Az OTP
+  internetbankban vagy a telefonon (az appot a telefonon megnyitva) az OTP
+  MobilBankban az új átutalás mezőibe csak be kell illeszteni őket.
+- A fizetendő számlák **kijelölhetők**, és az **„Utalás a kijelöltekből”**
+  gomb egyszerre mutatja az összes kijelölt számla utalási adatait.
+- Az utalási ablakban a **„Kifizetve”** gombbal azonnal kifizetettnek
+  jelölhető a számla (a listából ezért kikerült a külön Kifizetve gomb).
+- Ha hiányzik a bankszámlaszám vagy az összeg, vagy a számla nem forintos,
+  az ablak figyelmeztet.
+- Új gomb: **„Kijelöltek: kifizetve”**, több számla egyszerre kifizetettnek
+  jelöléséhez.
+- A **Beállítások** ablakban megadható a saját bankszámlaszám, így az app
+  nem keveri össze a szállítóéval.
+
+---
+
 ## 1.40.1 — Számlák: beolvasás csak gombnyomásra, pontosabb összegek
 
 - Az app **nem nézi többé percenként** a számla-mappát. A mappába mentett

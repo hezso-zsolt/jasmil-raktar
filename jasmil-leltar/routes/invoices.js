@@ -5,6 +5,7 @@ const { stringify } = require('csv-stringify/sync');
 const db = require('../db/database');
 const inbox = require('../lib/invoiceInbox');
 const { taxKey } = require('../lib/invoiceExtract');
+const { normalizeAccount } = require('../lib/payment');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024, files: 50 } });
@@ -83,19 +84,20 @@ router.get('/categories', (req, res) => {
 });
 
 /** Megkeresi vagy létrehozza a szállítót (először adószám, aztán név alapján) */
-function upsertSupplier(name, taxNumber, category) {
+function upsertSupplier(name, taxNumber, category, bankAccount) {
   if (!name) return null;
   const all = db.prepare('SELECT * FROM suppliers').all();
   let s = taxNumber ? all.find((x) => x.tax_number && taxKey(x.tax_number) === taxKey(taxNumber)) : null;
   if (!s) s = all.find((x) => x.name.toLowerCase() === name.toLowerCase());
   if (!s) {
-    const info = db.prepare('INSERT INTO suppliers (name, tax_number, default_category) VALUES (?, ?, ?)')
-      .run(name, taxNumber || null, category || null);
+    const info = db.prepare('INSERT INTO suppliers (name, tax_number, default_category, bank_account) VALUES (?, ?, ?, ?)')
+      .run(name, taxNumber || null, category || null, bankAccount || null);
     return info.lastInsertRowid;
   }
   db.prepare(`UPDATE suppliers SET name = ?, tax_number = COALESCE(tax_number, ?),
-              default_category = COALESCE(?, default_category) WHERE id = ?`)
-    .run(name, taxNumber || null, category || null, s.id);
+              default_category = COALESCE(?, default_category),
+              bank_account = COALESCE(?, bank_account) WHERE id = ?`)
+    .run(name, taxNumber || null, category || null, bankAccount || null, s.id);
   return s.id;
 }
 
@@ -227,6 +229,13 @@ function cleanBody(body) {
     if (s && !DATE_RE.test(s)) throw new Error(`Hibás dátum: ${label}.`);
     return s;
   };
+  const account = (v) => {
+    const s = str(v);
+    if (!s) return s;
+    const acc = normalizeAccount(s, { strict: true });
+    if (!acc) throw new Error('A bankszámlaszám hibás (ellenőrizd a számjegyeket).');
+    return acc;
+  };
   return {
     supplier_name: str(b.supplier_name),
     supplier_tax_number: str(b.supplier_tax_number),
@@ -239,6 +248,7 @@ function cleanBody(body) {
     gross_amount: num(b.gross_amount),
     currency: str(b.currency),
     payment_method: str(b.payment_method),
+    bank_account: account(b.bank_account),
     category: str(b.category),
     note: str(b.note),
     status: b.status,
@@ -259,11 +269,11 @@ function saveInvoice(id, body) {
   if (!merged.supplier_name) throw new Error('Add meg a szállító nevét.');
   if (merged.gross_amount === null || merged.gross_amount === undefined) throw new Error('Add meg a bruttó összeget.');
 
-  merged.supplier_id = upsertSupplier(merged.supplier_name, merged.supplier_tax_number, merged.category);
+  merged.supplier_id = upsertSupplier(merged.supplier_name, merged.supplier_tax_number, merged.category, merged.bank_account);
 
   const cols = ['supplier_id', 'supplier_name', 'supplier_tax_number', 'invoice_number', 'issue_date',
     'fulfillment_date', 'due_date', 'net_amount', 'vat_amount', 'gross_amount', 'currency', 'payment_method',
-    'category', 'note', 'status', 'paid_at'];
+    'category', 'bank_account', 'note', 'status', 'paid_at'];
   const values = cols.map((c) => merged[c] ?? null);
   if (current) {
     db.prepare(`UPDATE invoices SET ${cols.map((c) => `${c} = ?`).join(', ')}, extract_warnings = NULL,

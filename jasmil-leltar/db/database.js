@@ -51,6 +51,9 @@ ensureColumn('shoprenter_orders', 'address_country', 'TEXT');
 ensureColumn('shoprenter_orders', 'cod_amount', 'REAL');
 // Vonalkódos visszaellenőrzés hiánytalan egyezésének időpontja.
 ensureColumn('shoprenter_orders', 'verified_at', 'TEXT');
+// Bejövő számlák: a szállító bankszámlaszáma a csoportos utalási fájlhoz.
+ensureColumn('invoices', 'bank_account', 'TEXT');
+ensureColumn('suppliers', 'bank_account', 'TEXT');
 
 // Kis "polyfill", hogy a routes/ fájlokban használt better-sqlite3-stílusú
 // db.transaction(fn) API tovább működjön, csak sima BEGIN/COMMIT/ROLLBACK-kal.

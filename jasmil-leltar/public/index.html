@@ -501,6 +501,8 @@
       <div class="panel-header">
         <h2 id="invoices-heading">Számlák</h2>
         <div class="inline-form">
+          <button class="btn btn-primary btn-small" id="btn-invoice-pay-helper" disabled>Utalás a kijelöltekből</button>
+          <button class="btn btn-ghost btn-small" id="btn-invoice-mark-paid" disabled>Kijelöltek: kifizetve</button>
           <a class="btn btn-ghost btn-small" id="btn-invoice-export" href="/api/invoices/export">Export (Excel / CSV)</a>
         </div>
       </div>
@@ -523,7 +525,7 @@
       </div>
       <div class="table-wrap">
         <table class="table" id="invoices-table">
-          <thead><tr><th>Szállító</th><th>Számlaszám</th><th>Kiállítva</th><th>Határidő</th><th class="num-col">Bruttó</th><th>Kategória</th><th>Állapot</th><th></th></tr></thead>
+          <thead><tr><th class="col-check"><input type="checkbox" id="invoice-select-all" title="Az összes fizetendő kijelölése" /></th><th>Szállító</th><th>Számlaszám</th><th>Kiállítva</th><th>Határidő</th><th class="num-col">Bruttó</th><th>Kategória</th><th>Állapot</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
       </div>

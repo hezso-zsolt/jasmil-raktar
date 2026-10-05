@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const db = require('../db/database');
 const { extractInvoice, taxKey } = require('./invoiceExtract');
+const { normalizeAccount, toIban } = require('./payment');
 
 /**
  * Bejövő számlák beolvasása.
@@ -43,10 +44,11 @@ function getSettings() {
     inbox_dir: getSetting('invoice_inbox_dir', DEFAULT_INBOX_DIR),
     own_tax_numbers: splitList(getSetting('invoice_own_tax_numbers', '')),
     own_names: splitList(getSetting('invoice_own_names', 'Jasmil')),
+    own_bank_account: getSetting('invoice_own_bank_account', ''),
   };
 }
 
-function saveSettings({ inbox_dir, own_tax_numbers, own_names }) {
+function saveSettings({ inbox_dir, own_tax_numbers, own_names, own_bank_account }) {
   if (inbox_dir !== undefined) {
     const dir = String(inbox_dir || '').trim();
     if (!dir) throw new Error('Add meg a figyelt mappa útvonalát.');
@@ -57,6 +59,12 @@ function saveSettings({ inbox_dir, own_tax_numbers, own_names }) {
     setSetting('invoice_own_tax_numbers', [].concat(own_tax_numbers).join(', '));
   }
   if (own_names !== undefined) setSetting('invoice_own_names', [].concat(own_names).join(', '));
+  if (own_bank_account !== undefined) {
+    const raw = String(own_bank_account || '').trim();
+    const acc = raw ? normalizeAccount(raw, { strict: true }) : '';
+    if (raw && !acc) throw new Error('A saját bankszámlaszám hibás (ellenőrizd a számjegyeket).');
+    setSetting('invoice_own_bank_account', acc);
+  }
   return getSettings();
 }
 
@@ -70,7 +78,7 @@ function safeFileName(name) {
 }
 
 function knownSuppliers() {
-  return db.prepare('SELECT id, name, tax_number, default_category FROM suppliers').all();
+  return db.prepare('SELECT id, name, tax_number, default_category, bank_account FROM suppliers').all();
 }
 
 function findDuplicate(inv, excludeId = 0) {
@@ -102,6 +110,11 @@ async function importPdf(buffer, originalName, source) {
     knownSuppliers: suppliers,
   });
 
+  // A saját számlánk véletlenül se kerüljön a szállító bankszámlájának helyére
+  if (data.bank_account && settings.own_bank_account && toIban(data.bank_account) === toIban(settings.own_bank_account)) {
+    data.bank_account = null;
+  }
+
   const now = new Date();
   const relName = path.join(String(now.getFullYear()), `${hash.slice(0, 10)}_${safeFileName(originalName)}`);
   fs.mkdirSync(path.join(STORE_DIR, String(now.getFullYear())), { recursive: true });
@@ -115,12 +128,13 @@ async function importPdf(buffer, originalName, source) {
   const info = db.prepare(
     `INSERT INTO invoices (supplier_id, supplier_name, supplier_tax_number, invoice_number, issue_date,
        fulfillment_date, due_date, net_amount, vat_amount, gross_amount, currency, payment_method,
-       category, status, source, file_name, original_file_name, file_hash, extract_warnings)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ellenorizendo', ?, ?, ?, ?, ?)`
+       category, bank_account, status, source, file_name, original_file_name, file_hash, extract_warnings)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ellenorizendo', ?, ?, ?, ?, ?)`
   ).run(
     data.supplier_id, data.supplier_name, data.supplier_tax_number, data.invoice_number, data.issue_date,
     data.fulfillment_date, data.due_date, data.net_amount, data.vat_amount, data.gross_amount, data.currency,
-    data.payment_method, supplier ? supplier.default_category : null, source,
+    data.payment_method, supplier ? supplier.default_category : null,
+    data.bank_account || (supplier ? supplier.bank_account : null), source,
     relName.split(path.sep).join('/'), path.basename(originalName || ''), hash,
     warnings.length ? warnings.join('\n') : null
   );

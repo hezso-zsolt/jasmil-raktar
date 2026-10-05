@@ -226,6 +226,12 @@ A **Számlák** oldalon a beérkező (szállítói) számlák tarthatók nyilvá
    szállító, kategória, kiállítási dátum és szabad szöveg szerint, és a
    szűrt lista CSV-be (Excelben megnyitható) exportálható.
 
+**Utalás:** a fizetendő számla melletti **Utalás** gomb (vagy több
+kijelölt számlánál az **Utalás a kijelöltekből** gomb) mezőnként másolható
+formában mutatja a kedvezményezettet, a bankszámlaszámot, az összeget és a
+közleményt, amit az internetbank új átutalásába csak be kell illeszteni. A
+szállító bankszámlaszámát az app a PDF-ből olvassa ki.
+
 A beszkennelt, csak képet tartalmazó PDF-ekből nem olvasható szöveg - ezeknél
 az adatokat kézzel kell kitölteni. A PDF-ek másolata a `data/szamlak/`
 mappába kerül, a napi mentés pedig a `data/mentesek/szamla-pdfek/` mappába
@@ -323,7 +329,7 @@ adatmodell felkészült a későbbi bővítésükre:
 | Riportok | `GET /api/reports/overview`, `/unplaced`, `/movements`, `DELETE /api/reports/movements` (napló ürítése) |
 | Verzió | `GET /api/version` |
 | Termékfigyelő | `GET/POST /api/watchlist`, `GET /api/watchlist/check?code=`, `POST /api/watchlist/:id/fulfill`, `DELETE /api/watchlist/:id` |
-| Számlák | `GET/POST /api/invoices`, `GET/PUT/DELETE /api/invoices/:id`, `GET /api/invoices/:id/pdf`, `POST /api/invoices/:id/pay`, `POST /api/invoices/scan`, `POST /api/invoices/upload`, `GET/PUT /api/invoices/settings`, `GET /api/invoices/summary`, `/suppliers`, `/categories`, `/export` |
+| Számlák | `GET/POST /api/invoices`, `GET/PUT/DELETE /api/invoices/:id`, `GET /api/invoices/:id/pdf`, `POST /api/invoices/:id/pay`, `POST /api/invoices/scan`, `POST /api/invoices/upload`, `GET/PUT /api/invoices/settings`, `POST /api/invoices/payment-file`, `GET /api/invoices/summary`, `/suppliers`, `/categories`, `/export` |
 | Import/export | `POST /api/io/products/import`, `GET /api/io/inventory/:id/export`, `/warehouse/export`, `/boxes/export` |
 
 ## Hibaüzenetek
