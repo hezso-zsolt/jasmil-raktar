@@ -6,6 +6,9 @@ cd /d "%~dp0"
 
 echo.
 echo === Frissites letoltese (git pull) ===
+rem Az npm install helyben atirhatja a package-lock.json-t, ami megakasztana
+rem a git pull-t. Ez csak gepi zaj, ezert eldobjuk a pull elott.
+git checkout -- jasmil-leltar/package-lock.json
 git pull
 if errorlevel 1 (
   echo.
