@@ -6,6 +6,18 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.41.2 — Foxpost felismerése a Kvikk panelen
+
+- A Chrome-bővítmény Kvikk paneljén a futár lenyíló mostantól a szállítási
+  mód szövegéből választ, ha az név szerint említ futárt: Foxpost
+  automatás rendelésnél **Foxpost**, Packetánál **Packeta**, GLS-nél
+  **GLS** stb. Eddig ilyenkor MPL állt be, mert az automatás rendelések
+  szövege (a konkrét ponttal együtt) rendelésenként más, így a megjegyzett
+  futár nem talált. A bővítményt nem kell újratölteni, elég az appot
+  frissíteni.
+
+---
+
 ## 1.41.1 — Rendelés törlése
 
 - A **Rendelések** listában minden rendelés mellett új **„Törlés”** gomb,

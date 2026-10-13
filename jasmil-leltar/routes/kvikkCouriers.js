@@ -1,6 +1,7 @@
 const express = require('express');
 const kvikk = require('../lib/kvikkClient');
 const db = require('../db/database');
+const { courierFromShippingText } = require('../lib/courierFromShippingText');
 
 const router = express.Router();
 
@@ -21,6 +22,10 @@ router.get('/', async (req, res) => {
 router.get('/preference', (req, res) => {
   const text = req.query.shipping_method_text;
   if (!text) return res.json({ courier: null });
+  // Ha a szöveg név szerint említ egy futárt (pl. "Foxpost csomagautomata"),
+  // az nyer; különben a korábban erre a pontos szövegre megtanult futár.
+  const named = courierFromShippingText(text);
+  if (named) return res.json({ courier: named });
   const row = db.prepare(`SELECT courier FROM kvikk_courier_preferences WHERE shipping_method_text = ?`).get(text);
   res.json({ courier: row ? row.courier : null });
 });
