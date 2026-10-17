@@ -2077,9 +2077,35 @@ function openModal(title, fields, onSave) {
 // ---------- Rendelések / komissiózás ----------
 
 let currentPickingOrderId = null;
-// Alapértelmezetten csak az összekészítésre váró rendeléseket mutatjuk -
-// a csomagolónak jellemzően ez a napi munkalistája. A szűrő átkapcsolható.
-let ordersFilter = 'pending'; // 'pending' | 'picked' | 'all'
+// A lista alapból az aktuális hónap összes rendelését mutatja, lapozva.
+// Hónap és állapot szerint szűrhető; a szűrést a szerver végzi.
+const ordersQuery = { month: '', status: 'all', page: 1 }; // month: '' = aktuális hónap
+const ORDERS_PAGE_SIZE = 25;
+const ORDER_STATUS_LABELS = {
+  all: 'Mind',
+  pending: 'Összekészítésre vár',
+  picked: 'Összekészítve',
+  verified: 'Ellenőrizve',
+  not_verified: 'Nincs ellenőrizve',
+  deducted: 'Készlet könyvelve',
+  not_deducted: 'Nincs könyvelve',
+  kvikk: 'Van Kvikk címke',
+  unmatched: 'Ismeretlen cikkszám',
+};
+const HU_MONTHS = ['január', 'február', 'március', 'április', 'május', 'június',
+  'július', 'augusztus', 'szeptember', 'október', 'november', 'december'];
+function fmtOrderMonth(ym) {
+  const [y, m] = ym.split('-');
+  return `${y}. ${HU_MONTHS[Number(m) - 1]}`;
+}
+
+function setOrdersNavBadge(pending) {
+  const badge = document.getElementById('orders-nav-badge');
+  if (badge) {
+    badge.textContent = String(pending);
+    badge.classList.toggle('hidden', pending === 0);
+  }
+}
 
 function showOrdersList() {
   document.getElementById('orders-list-panel').classList.remove('hidden');
@@ -2093,49 +2119,84 @@ function showPickingPanel() {
 }
 
 async function loadOrders() {
-  let orders = [];
+  let data;
   try {
-    orders = await api('GET', '/api/orders');
+    const params = new URLSearchParams({
+      status: ordersQuery.status,
+      page: String(ordersQuery.page),
+      page_size: String(ORDERS_PAGE_SIZE),
+    });
+    if (ordersQuery.month) params.set('month', ordersQuery.month);
+    data = await api('GET', `/api/orders?${params}`);
   } catch (err) {
     toast(err.message, 'err');
     return;
   }
+  // A szerver igazíthat (pl. túl nagy oldalszám) - onnan vesszük át.
+  ordersQuery.page = data.page;
+  const visible = data.orders;
 
-  const pending = orders.filter((o) => !o.picked_at).length;
-  const picked = orders.length - pending;
+  const monthLabel = data.month === 'all' ? 'minden hónap' : fmtOrderMonth(data.month);
+  const statusLabel = data.status === 'all' ? 'összesen' : ORDER_STATUS_LABELS[data.status].toLowerCase();
+  document.getElementById('orders-heading').textContent = `Rendelések — ${monthLabel}: ${data.total} ${statusLabel}`;
 
-  // Szűrés a kiválasztott nézet szerint
-  let visible = orders;
-  if (ordersFilter === 'pending') visible = orders.filter((o) => !o.picked_at);
-  else if (ordersFilter === 'picked') visible = orders.filter((o) => o.picked_at);
+  // Hónapválasztó: azok a hónapok, amikből van rendelés
+  const monthSelect = document.getElementById('orders-month-filter');
+  monthSelect.innerHTML = '';
+  for (const m of data.months) {
+    const label = `${fmtOrderMonth(m.month)} (${m.count})${m.month === data.current_month ? ' — aktuális' : ''}`;
+    monthSelect.appendChild(el('option', { value: m.month }, label));
+  }
+  monthSelect.appendChild(el('option', { value: 'all' }, 'Minden hónap'));
+  monthSelect.value = data.month;
 
-  const filterLabel =
-    ordersFilter === 'pending' ? 'összekészítésre vár' : ordersFilter === 'picked' ? 'összekészítve' : 'összesen';
-  document.getElementById('orders-heading').textContent = `Rendelések — ${visible.length} ${filterLabel}`;
-
-  // A szűrőgombok feliratán mutatjuk a darabszámokat is
+  // A szűrőgombok feliratán a kiválasztott hónapra vonatkozó darabszám
   document.querySelectorAll('[data-orders-filter]').forEach((btn) => {
     const key = btn.dataset.ordersFilter;
-    btn.classList.toggle('active', key === ordersFilter);
-    if (key === 'pending') btn.textContent = `Összekészítésre vár (${pending})`;
-    else if (key === 'picked') btn.textContent = `Összekészítve (${picked})`;
-    else btn.textContent = `Mind (${orders.length})`;
+    btn.classList.toggle('active', key === data.status);
+    btn.textContent = `${ORDER_STATUS_LABELS[key]} (${data.counts[key] ?? 0})`;
   });
 
-  const badge = document.getElementById('orders-nav-badge');
-  if (badge) {
-    badge.textContent = String(pending);
-    badge.classList.toggle('hidden', pending === 0);
+  setOrdersNavBadge(data.pending_total);
+
+  // Ha más hónapokban is van összekészítésre váró rendelés, jelezzük,
+  // hogy a hónapszűrő miatt ne sikkadjon el.
+  const olderBox = document.getElementById('orders-older-pending');
+  const otherPending = data.month === 'all' ? 0 : data.pending_total - (data.counts.pending || 0);
+  olderBox.innerHTML = '';
+  olderBox.classList.toggle('hidden', otherPending <= 0);
+  if (otherPending > 0) {
+    olderBox.append(
+      `⏳ Más hónapokban még ${otherPending} összekészítésre váró rendelés van. `,
+      el('a', {
+        onclick: () => {
+          Object.assign(ordersQuery, { month: 'all', status: 'pending', page: 1 });
+          loadOrders();
+        },
+      }, 'Megmutatom')
+    );
   }
+
+  // Lapozó
+  const pager = document.getElementById('orders-pager');
+  pager.classList.toggle('hidden', data.page_count <= 1);
+  const from = data.total ? (data.page - 1) * data.page_size + 1 : 0;
+  const to = Math.min(data.page * data.page_size, data.total);
+  document.getElementById('orders-page-info').textContent =
+    `${data.page}. / ${data.page_count} oldal (${from}–${to} / ${data.total})`;
+  document.getElementById('btn-orders-prev').disabled = data.page <= 1;
+  document.getElementById('btn-orders-next').disabled = data.page >= data.page_count;
 
   const tbody = document.querySelector('#orders-table tbody');
   tbody.innerHTML = '';
 
   if (!visible.length) {
     const emptyText =
-      orders.length === 0
-        ? 'Még nincs beolvasott rendelés. Nyiss meg egy rendelést a Shoprenter adminban a Kvikk Connect bővítménnyel.'
-        : ordersFilter === 'pending'
+      data.counts.all === 0
+        ? data.month === 'all'
+          ? 'Még nincs beolvasott rendelés. Nyiss meg egy rendelést a Shoprenter adminban a Kvikk Connect bővítménnyel.'
+          : 'Ebben a hónapban még nincs beolvasott rendelés.'
+        : data.status === 'pending'
         ? 'Nincs összekészítésre váró rendelés. 🎉'
         : 'Nincs ilyen állapotú rendelés.';
     tbody.appendChild(el('tr', {}, [el('td', { colspan: '6', class: 'hint' }, emptyText)]));
@@ -2287,9 +2348,26 @@ async function openPicking(orderRowId) {
 
 document.querySelectorAll('[data-orders-filter]').forEach((btn) => {
   btn.addEventListener('click', () => {
-    ordersFilter = btn.dataset.ordersFilter;
+    ordersQuery.status = btn.dataset.ordersFilter;
+    ordersQuery.page = 1;
     loadOrders();
   });
+});
+
+document.getElementById('orders-month-filter').addEventListener('change', (e) => {
+  ordersQuery.month = e.target.value;
+  ordersQuery.page = 1;
+  loadOrders();
+});
+
+document.getElementById('btn-orders-prev').addEventListener('click', () => {
+  ordersQuery.page = Math.max(1, ordersQuery.page - 1);
+  loadOrders();
+});
+
+document.getElementById('btn-orders-next').addEventListener('click', () => {
+  ordersQuery.page += 1;
+  loadOrders();
 });
 
 document.getElementById('btn-orders-back').addEventListener('click', () => {
@@ -2549,13 +2627,8 @@ document.getElementById('btn-verify-reset').addEventListener('click', async () =
 
 async function updateOrdersBadge() {
   try {
-    const orders = await api('GET', '/api/orders');
-    const pending = orders.filter((o) => !o.picked_at).length;
-    const badge = document.getElementById('orders-nav-badge');
-    if (badge) {
-      badge.textContent = String(pending);
-      badge.classList.toggle('hidden', pending === 0);
-    }
+    const data = await api('GET', '/api/orders?page_size=5');
+    setOrdersNavBadge(data.pending_total);
   } catch (e) { /* nem kritikus */ }
 }
 

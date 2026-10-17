@@ -759,3 +759,11 @@ tr.row-size-mismatch:hover td { background: var(--bad-bg); }
 tr.verify-row-ok td { color: var(--ink-soft); }
 tr.verify-row-bad, tr.verify-row-bad td { background: var(--bad-bg); }
 tr.verify-row-bad:hover td { background: var(--bad-bg); }
+
+/* Rendelések: hónapválasztó, régebbi várakozók jelzése, lapozó */
+#orders-month-filter { width: auto; min-width: 170px; }
+#orders-older-pending { margin: 0 0 10px; }
+#orders-older-pending a { cursor: pointer; text-decoration: underline; }
+.table-wrap + .pager { margin-top: 12px; }
+.pager { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.pager .hint { margin: 0; }
