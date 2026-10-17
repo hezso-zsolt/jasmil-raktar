@@ -127,13 +127,19 @@ router.post('/import', (req, res) => {
 // (shoprenter_orders) sorra; a felület ezek kulcsait küldi a ?status= paraméterben.
 const ORDER_STATUS_FILTERS = {
   all: '1 = 1',
+  // A szűrők a hiányt mutatják: mi nincs még meg az adott rendelésnél.
   pending: 'o.picked_at IS NULL',
-  picked: 'o.picked_at IS NOT NULL',
-  verified: 'o.verified_at IS NOT NULL',
-  deducted: 'o.stock_deducted_at IS NOT NULL',
-  kvikk: `EXISTS (SELECT 1 FROM kvikk_shipments s WHERE s.shoprenter_order_id = o.shoprenter_order_id
+  not_verified: 'o.verified_at IS NULL',
+  not_deducted: 'o.stock_deducted_at IS NULL',
+  // Rendellenességek: amire érdemes ránézni. Az "issues" ezek bármelyike.
+  issue_not_deducted: 'o.picked_at IS NOT NULL AND o.stock_deducted_at IS NULL',
+  issue_unmatched: 'EXISTS (SELECT 1 FROM shoprenter_order_items i WHERE i.order_id = o.id AND i.product_id IS NULL)',
+  issue_verify_mismatch: `o.verified_at IS NULL AND EXISTS (SELECT 1 FROM order_verify_scans v WHERE v.order_id = o.id)`,
+  no_kvikk: `NOT EXISTS (SELECT 1 FROM kvikk_shipments s WHERE s.shoprenter_order_id = o.shoprenter_order_id
                    AND s.kvikk_tracking_number IS NOT NULL)`,
 };
+const ORDER_ISSUE_KEYS = ['issue_not_deducted', 'issue_unmatched', 'issue_verify_mismatch'];
+ORDER_STATUS_FILTERS.issues = ORDER_ISSUE_KEYS.map((k) => `(${ORDER_STATUS_FILTERS[k]})`).join(' OR ');
 
 // A rendelés hónapja a beolvasás ideje szerint, helyi idő szerint (az
 // imported_at UTC-ben tárolódik, így hónap határán is a jó hónapba esik).
@@ -146,7 +152,8 @@ const ORDER_MONTH_SQL = `strftime('%Y-%m', o.imported_at, 'localtime')`;
  *   ?page=1&page_size=25
  * Válasz: { orders, total, page, page_size, page_count, month, status,
  *           counts (állapotonként, a kiválasztott hónapra), months, pending_total }
- * A pending_total az összes hónap összekészítésre váró rendelése (menü jelvény).
+ * A pending_total az összes hónap összekészítésre váró rendelése (menü jelvény),
+ * az issue_totals pedig rendellenesség-típusonként az összes hónap darabszáma.
  */
 router.get('/', (req, res) => {
   const currentMonth = db.prepare(`SELECT strftime('%Y-%m', 'now', 'localtime') AS m`).get().m;
@@ -198,6 +205,15 @@ router.get('/', (req, res) => {
 
   const pendingTotal = db.prepare(`SELECT COUNT(*) AS n FROM shoprenter_orders WHERE picked_at IS NULL`).get().n;
 
+  // Rendellenességek az összes hónapban - ezek a hónapszűrőtől függetlenül
+  // figyelmeztetésként jelennek meg, hogy ne sikkadjanak el.
+  const issueTotals = {};
+  for (const key of ORDER_ISSUE_KEYS) {
+    issueTotals[key] = db
+      .prepare(`SELECT COUNT(*) AS n FROM shoprenter_orders o WHERE ${ORDER_STATUS_FILTERS[key]}`)
+      .get().n;
+  }
+
   res.json({
     orders,
     total,
@@ -210,6 +226,7 @@ router.get('/', (req, res) => {
     counts,
     months,
     pending_total: pendingTotal,
+    issue_totals: issueTotals,
   });
 });
 

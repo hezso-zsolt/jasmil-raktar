@@ -767,3 +767,8 @@ tr.verify-row-bad:hover td { background: var(--bad-bg); }
 .table-wrap + .pager { margin-top: 12px; }
 .pager { display: flex; align-items: center; justify-content: center; gap: 12px; }
 .pager .hint { margin: 0; }
+
+/* Rendellenességek figyelmeztető sávja a Rendelések lista tetején */
+.orders-issues { background: #FFF6DB; border: 1px solid #F0D68A; color: #6B4E00; border-radius: 10px; padding: 10px 14px; margin: 0 0 12px; font-size: 13.5px; line-height: 1.6; }
+.orders-issues a { cursor: pointer; text-decoration: underline; color: inherit; font-weight: 600; }
+.chip.chip-warn:not(.active) { border-color: #F0D68A; }

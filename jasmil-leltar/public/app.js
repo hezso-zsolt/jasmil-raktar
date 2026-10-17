@@ -2083,11 +2083,14 @@ const ordersQuery = { month: '', status: 'all', page: 1 }; // month: '' = aktuá
 const ORDERS_PAGE_SIZE = 25;
 const ORDER_STATUS_LABELS = {
   all: 'Mind',
-  pending: 'Összekészítésre vár',
-  picked: 'Összekészítve',
-  verified: 'Ellenőrizve',
-  deducted: 'Készlet könyvelve',
-  kvikk: 'Van Kvikk címke',
+  pending: 'Nincs összekészítve',
+  not_verified: 'Nincs ellenőrizve',
+  not_deducted: 'Nincs könyvelve',
+  no_kvikk: 'Nincs Kvikk címke',
+  issues: 'Rendellenes',
+  issue_not_deducted: 'Összekészítve, de nincs könyvelve',
+  issue_unmatched: 'Ismeretlen cikkszám',
+  issue_verify_mismatch: 'Ellenőrzés eltér',
 };
 const HU_MONTHS = ['január', 'február', 'március', 'április', 'május', 'június',
   'július', 'augusztus', 'szeptember', 'október', 'november', 'december'];
@@ -2150,11 +2153,35 @@ async function loadOrders() {
   // A szűrőgombok feliratán a kiválasztott hónapra vonatkozó darabszám
   document.querySelectorAll('[data-orders-filter]').forEach((btn) => {
     const key = btn.dataset.ordersFilter;
-    btn.classList.toggle('active', key === data.status);
-    btn.textContent = `${ORDER_STATUS_LABELS[key]} (${data.counts[key] ?? 0})`;
+    btn.classList.toggle('active', key === data.status || (key === 'issues' && data.status.startsWith('issue_')));
+    btn.textContent = `${key === 'issues' ? '⚠️ ' : ''}${ORDER_STATUS_LABELS[key]} (${data.counts[key] ?? 0})`;
   });
 
   setOrdersNavBadge(data.pending_total);
+
+  // Rendellenességek (minden hónapból), hogy azonnal feltűnjenek
+  const ISSUE_TEXTS = {
+    issue_not_deducted: (n) => `${n} összekészített rendelésnél nincs lekönyvelve a készlet`,
+    issue_unmatched: (n) => `${n} rendelésben van ismeretlen cikkszámú tétel`,
+    issue_verify_mismatch: (n) => `${n} rendelésnél eltér a vonalkódos ellenőrzés`,
+  };
+  const issuesBox = document.getElementById('orders-issues');
+  issuesBox.innerHTML = '';
+  const issueEntries = Object.entries(data.issue_totals || {}).filter(([, n]) => n > 0);
+  issuesBox.classList.toggle('hidden', issueEntries.length === 0);
+  for (const [key, n] of issueEntries) {
+    issuesBox.appendChild(
+      el('div', {}, [
+        `⚠️ ${ISSUE_TEXTS[key](n)}. `,
+        el('a', {
+          onclick: () => {
+            Object.assign(ordersQuery, { month: 'all', status: key, page: 1 });
+            loadOrders();
+          },
+        }, 'Megmutatom'),
+      ])
+    );
+  }
 
   // Ha más hónapokban is van összekészítésre váró rendelés, jelezzük,
   // hogy a hónapszűrő miatt ne sikkadjon el.
@@ -2209,6 +2236,7 @@ async function loadOrders() {
     if (order.verified_at) statusParts.push('🔎 ellenőrizve');
     else if (order.verify_scan_count > 0) statusParts.push('🔎 ellenőrzés eltér / folyamatban');
     if (order.stock_deducted_at) statusParts.push('📉 készlet könyvelve');
+    else if (order.picked_at) statusParts.push('⚠️ nincs könyvelve');
 
     tbody.appendChild(
       el('tr', {}, [
