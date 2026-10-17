@@ -404,18 +404,31 @@
       <div id="orders-list-panel">
         <div class="panel-header">
           <h2 id="orders-heading">Rendelések</h2>
-          <div class="filter-row" id="orders-filter">
-            <button class="btn btn-ghost active" data-orders-filter="pending">Összekészítésre vár</button>
-            <button class="btn btn-ghost" data-orders-filter="picked">Összekészítve</button>
-            <button class="btn btn-ghost" data-orders-filter="all">Mind</button>
-          </div>
+          <select id="orders-month-filter" title="Melyik hónap rendeléseit mutassa"></select>
         </div>
+        <div class="filter-row" id="orders-filter">
+          <button class="chip active" data-orders-filter="all">Mind</button>
+          <button class="chip" data-orders-filter="pending">Összekészítésre vár</button>
+          <button class="chip" data-orders-filter="picked">Összekészítve</button>
+          <button class="chip" data-orders-filter="verified">Ellenőrizve</button>
+          <button class="chip" data-orders-filter="not_verified">Nincs ellenőrizve</button>
+          <button class="chip" data-orders-filter="deducted">Készlet könyvelve</button>
+          <button class="chip" data-orders-filter="not_deducted">Nincs könyvelve</button>
+          <button class="chip" data-orders-filter="kvikk">Van Kvikk címke</button>
+          <button class="chip" data-orders-filter="unmatched">Ismeretlen cikkszám</button>
+        </div>
+        <div id="orders-older-pending" class="hint hidden"></div>
         <p class="hint">A Shoprenter adminban megnyitott rendeléseket a Kvikk Connect bővítmény küldi ide. Egy rendelésre kattintva látod, melyik terméket melyik dobozból kell kivenni.</p>
         <div class="table-wrap">
           <table class="table" id="orders-table">
             <thead><tr><th>Rendelés</th><th>Vevő</th><th>Tételek</th><th>Szállítás</th><th>Állapot</th><th></th></tr></thead>
             <tbody></tbody>
           </table>
+        </div>
+        <div class="pager hidden" id="orders-pager">
+          <button class="btn btn-ghost btn-small" id="btn-orders-prev">← Előző</button>
+          <span class="hint" id="orders-page-info"></span>
+          <button class="btn btn-ghost btn-small" id="btn-orders-next">Következő →</button>
         </div>
       </div>
 

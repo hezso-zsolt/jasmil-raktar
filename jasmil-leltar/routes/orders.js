@@ -123,9 +123,56 @@ router.post('/import', (req, res) => {
   });
 });
 
-// GET /api/orders - rendeléslista (alapból a még össze nem készítettek elöl)
+// A rendeléslista állapot-szűrői. Mindegyik egy SQL feltétel az "o"
+// (shoprenter_orders) sorra; a felület ezek kulcsait küldi a ?status= paraméterben.
+const ORDER_STATUS_FILTERS = {
+  all: '1 = 1',
+  pending: 'o.picked_at IS NULL',
+  picked: 'o.picked_at IS NOT NULL',
+  verified: 'o.verified_at IS NOT NULL',
+  not_verified: 'o.verified_at IS NULL',
+  deducted: 'o.stock_deducted_at IS NOT NULL',
+  not_deducted: 'o.stock_deducted_at IS NULL',
+  kvikk: `EXISTS (SELECT 1 FROM kvikk_shipments s WHERE s.shoprenter_order_id = o.shoprenter_order_id
+                   AND s.kvikk_tracking_number IS NOT NULL)`,
+  unmatched: 'EXISTS (SELECT 1 FROM shoprenter_order_items i WHERE i.order_id = o.id AND i.product_id IS NULL)',
+};
+
+// A rendelés hónapja a beolvasás ideje szerint, helyi idő szerint (az
+// imported_at UTC-ben tárolódik, így hónap határán is a jó hónapba esik).
+const ORDER_MONTH_SQL = `strftime('%Y-%m', o.imported_at, 'localtime')`;
+
+/**
+ * GET /api/orders - rendeléslista lapozva és szűrve.
+ *   ?month=YYYY-MM | all   (alapból: az aktuális hónap)
+ *   ?status=<ORDER_STATUS_FILTERS kulcs>   (alapból: all)
+ *   ?page=1&page_size=25
+ * Válasz: { orders, total, page, page_size, page_count, month, status,
+ *           counts (állapotonként, a kiválasztott hónapra), months, pending_total }
+ * A pending_total az összes hónap összekészítésre váró rendelése (menü jelvény).
+ */
 router.get('/', (req, res) => {
-  const rows = db
+  const currentMonth = db.prepare(`SELECT strftime('%Y-%m', 'now', 'localtime') AS m`).get().m;
+  let month = String(req.query.month || currentMonth);
+  if (month !== 'all' && !/^\d{4}-\d{2}$/.test(month)) month = currentMonth;
+  const status = ORDER_STATUS_FILTERS[req.query.status] ? String(req.query.status) : 'all';
+  const pageSize = Math.min(Math.max(parseInt(req.query.page_size, 10) || 25, 5), 200);
+
+  const monthWhere = month === 'all' ? '1 = 1' : `${ORDER_MONTH_SQL} = ?`;
+  const monthParams = month === 'all' ? [] : [month];
+
+  const counts = {};
+  for (const [key, cond] of Object.entries(ORDER_STATUS_FILTERS)) {
+    counts[key] = db
+      .prepare(`SELECT COUNT(*) AS n FROM shoprenter_orders o WHERE ${monthWhere} AND ${cond}`)
+      .get(...monthParams).n;
+  }
+
+  const total = counts[status];
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(Math.max(parseInt(req.query.page, 10) || 1, 1), pageCount);
+
+  const orders = db
     .prepare(
       `SELECT o.*,
          (SELECT COUNT(*) FROM shoprenter_order_items i WHERE i.order_id = o.id) AS item_count,
@@ -134,10 +181,39 @@ router.get('/', (req, res) => {
          (SELECT kvikk_tracking_number FROM kvikk_shipments s WHERE s.shoprenter_order_id = o.shoprenter_order_id) AS kvikk_tracking_number,
          (SELECT COUNT(*) FROM order_verify_scans v WHERE v.order_id = o.id) AS verify_scan_count
        FROM shoprenter_orders o
-       ORDER BY (o.picked_at IS NOT NULL), o.imported_at DESC`
+       WHERE ${monthWhere} AND ${ORDER_STATUS_FILTERS[status]}
+       ORDER BY (o.picked_at IS NOT NULL), o.imported_at DESC, o.id DESC
+       LIMIT ? OFFSET ?`
+    )
+    .all(...monthParams, pageSize, (page - 1) * pageSize);
+
+  // A hónapválasztóba: azok a hónapok, amikből van rendelés (+ mindig az aktuális).
+  const months = db
+    .prepare(
+      `SELECT ${ORDER_MONTH_SQL} AS month, COUNT(*) AS count,
+         SUM(CASE WHEN o.picked_at IS NULL THEN 1 ELSE 0 END) AS pending
+       FROM shoprenter_orders o GROUP BY month ORDER BY month DESC`
     )
     .all();
-  res.json(rows);
+  if (!months.some((m) => m.month === currentMonth)) {
+    months.unshift({ month: currentMonth, count: 0, pending: 0 });
+  }
+
+  const pendingTotal = db.prepare(`SELECT COUNT(*) AS n FROM shoprenter_orders WHERE picked_at IS NULL`).get().n;
+
+  res.json({
+    orders,
+    total,
+    page,
+    page_size: pageSize,
+    page_count: pageCount,
+    month,
+    current_month: currentMonth,
+    status,
+    counts,
+    months,
+    pending_total: pendingTotal,
+  });
 });
 
 /**

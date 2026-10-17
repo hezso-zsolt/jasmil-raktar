@@ -6,6 +6,21 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.42.0 — Rendelések: hónap, lapozás, állapot szűrők
+
+- A **Rendelések** lista megnyitáskor az **aktuális hónap** rendeléseit
+  mutatja. A jobb felső hónapválasztóval korábbi hónapra, vagy a
+  „Minden hónap” lehetőséggel az összesre lehet váltani.
+- Új **állapot szűrők**: Összekészítésre vár, Összekészítve, Ellenőrizve,
+  Nincs ellenőrizve, Készlet könyvelve, Nincs könyvelve, Van Kvikk címke,
+  Ismeretlen cikkszám. Mindegyik gombon látszik, hány rendelés tartozik
+  hozzá a kiválasztott hónapban.
+- **Lapozás**: oldalanként 25 rendelés, alul „Előző / Következő” gombokkal.
+- Ha korábbi hónapban maradt összekészítésre váró rendelés, a lista tetején
+  egy sor jelzi, és a „Megmutatom” linkre kattintva azonnal előjönnek.
+
+---
+
 ## 1.41.2 — Foxpost felismerése a Kvikk panelen
 
 - A Chrome-bővítmény Kvikk paneljén a futár lenyíló mostantól a szállítási
