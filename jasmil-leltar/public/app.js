@@ -2083,15 +2083,14 @@ const ordersQuery = { month: '', status: 'all', page: 1 }; // month: '' = aktuá
 const ORDERS_PAGE_SIZE = 25;
 const ORDER_STATUS_LABELS = {
   all: 'Mind',
-  pending: 'Összekészítésre vár',
-  picked: 'Összekészítve',
-  verified: 'Ellenőrizve',
-  deducted: 'Készlet könyvelve',
+  pending: 'Nincs összekészítve',
+  not_verified: 'Nincs ellenőrizve',
+  not_deducted: 'Nincs könyvelve',
+  no_kvikk: 'Nincs Kvikk címke',
   issues: 'Rendellenes',
   issue_not_deducted: 'Összekészítve, de nincs könyvelve',
   issue_unmatched: 'Ismeretlen cikkszám',
   issue_verify_mismatch: 'Ellenőrzés eltér',
-  kvikk: 'Van Kvikk címke',
 };
 const HU_MONTHS = ['január', 'február', 'március', 'április', 'május', 'június',
   'július', 'augusztus', 'szeptember', 'október', 'november', 'december'];

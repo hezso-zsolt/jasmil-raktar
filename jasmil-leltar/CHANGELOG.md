@@ -15,6 +15,8 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
   - **eltér a vonalkódos ellenőrzés**.
   A „Megmutatom” linkre kattintva előjönnek az érintett rendelések.
 - Új **„⚠️ Rendellenes”** szűrő, ami ezek bármelyikét mutatja.
+- A szűrők mostantól a **hiányt** mutatják: Nincs összekészítve, Nincs
+  ellenőrizve, Nincs könyvelve, Nincs Kvikk címke.
 - Összekészített, de le nem könyvelt rendelés sorában „⚠️ nincs
   könyvelve” jelzés látszik.
 

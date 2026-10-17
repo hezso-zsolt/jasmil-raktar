@@ -408,12 +408,11 @@
         </div>
         <div class="filter-row" id="orders-filter">
           <button class="chip active" data-orders-filter="all">Mind</button>
-          <button class="chip" data-orders-filter="pending">Összekészítésre vár</button>
-          <button class="chip" data-orders-filter="picked">Összekészítve</button>
-          <button class="chip" data-orders-filter="verified">Ellenőrizve</button>
-          <button class="chip" data-orders-filter="deducted">Készlet könyvelve</button>
+          <button class="chip" data-orders-filter="pending">Nincs összekészítve</button>
+          <button class="chip" data-orders-filter="not_verified">Nincs ellenőrizve</button>
+          <button class="chip" data-orders-filter="not_deducted">Nincs könyvelve</button>
+          <button class="chip" data-orders-filter="no_kvikk">Nincs Kvikk címke</button>
           <button class="chip chip-warn" data-orders-filter="issues">⚠️ Rendellenes</button>
-          <button class="chip" data-orders-filter="kvikk">Van Kvikk címke</button>
         </div>
         <div id="orders-issues" class="orders-issues hidden"></div>
         <div id="orders-older-pending" class="hint hidden"></div>

@@ -127,15 +127,15 @@ router.post('/import', (req, res) => {
 // (shoprenter_orders) sorra; a felület ezek kulcsait küldi a ?status= paraméterben.
 const ORDER_STATUS_FILTERS = {
   all: '1 = 1',
+  // A szűrők a hiányt mutatják: mi nincs még meg az adott rendelésnél.
   pending: 'o.picked_at IS NULL',
-  picked: 'o.picked_at IS NOT NULL',
-  verified: 'o.verified_at IS NOT NULL',
-  deducted: 'o.stock_deducted_at IS NOT NULL',
+  not_verified: 'o.verified_at IS NULL',
+  not_deducted: 'o.stock_deducted_at IS NULL',
   // Rendellenességek: amire érdemes ránézni. Az "issues" ezek bármelyike.
   issue_not_deducted: 'o.picked_at IS NOT NULL AND o.stock_deducted_at IS NULL',
   issue_unmatched: 'EXISTS (SELECT 1 FROM shoprenter_order_items i WHERE i.order_id = o.id AND i.product_id IS NULL)',
   issue_verify_mismatch: `o.verified_at IS NULL AND EXISTS (SELECT 1 FROM order_verify_scans v WHERE v.order_id = o.id)`,
-  kvikk: `EXISTS (SELECT 1 FROM kvikk_shipments s WHERE s.shoprenter_order_id = o.shoprenter_order_id
+  no_kvikk: `NOT EXISTS (SELECT 1 FROM kvikk_shipments s WHERE s.shoprenter_order_id = o.shoprenter_order_id
                    AND s.kvikk_tracking_number IS NOT NULL)`,
 };
 const ORDER_ISSUE_KEYS = ['issue_not_deducted', 'issue_unmatched', 'issue_verify_mismatch'];
