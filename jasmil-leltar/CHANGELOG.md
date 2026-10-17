@@ -10,6 +10,8 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 - A **Rendelések** szűrői közül kikerültek a „Nincs ellenőrizve” és a
   „Nincs könyvelve” gombok, csak a pozitív szűrők maradtak.
+- Az „Ismeretlen cikkszám” szűrő is kikerült. A rendelés sorában a
+  „⚠️ ismeretlen cikkszám” jelzés továbbra is megjelenik.
 
 ---
 

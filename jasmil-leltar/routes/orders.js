@@ -133,7 +133,6 @@ const ORDER_STATUS_FILTERS = {
   deducted: 'o.stock_deducted_at IS NOT NULL',
   kvikk: `EXISTS (SELECT 1 FROM kvikk_shipments s WHERE s.shoprenter_order_id = o.shoprenter_order_id
                    AND s.kvikk_tracking_number IS NOT NULL)`,
-  unmatched: 'EXISTS (SELECT 1 FROM shoprenter_order_items i WHERE i.order_id = o.id AND i.product_id IS NULL)',
 };
 
 // A rendelés hónapja a beolvasás ideje szerint, helyi idő szerint (az

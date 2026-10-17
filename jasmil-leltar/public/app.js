@@ -2088,7 +2088,6 @@ const ORDER_STATUS_LABELS = {
   verified: 'Ellenőrizve',
   deducted: 'Készlet könyvelve',
   kvikk: 'Van Kvikk címke',
-  unmatched: 'Ismeretlen cikkszám',
 };
 const HU_MONTHS = ['január', 'február', 'március', 'április', 'május', 'június',
   'július', 'augusztus', 'szeptember', 'október', 'november', 'december'];
