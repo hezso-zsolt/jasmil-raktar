@@ -6,6 +6,20 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.43.0 — Rendellenességek kiemelése
+
+- A **Rendelések** lista tetején egy sárga sáv jelzi, ha valamelyik
+  rendelésnél rendellenesség van, bármelyik hónapban:
+  - összekészítve, de **nincs lekönyvelve a készlet**,
+  - **ismeretlen cikkszámú** tétel van benne,
+  - **eltér a vonalkódos ellenőrzés**.
+  A „Megmutatom” linkre kattintva előjönnek az érintett rendelések.
+- Új **„⚠️ Rendellenes”** szűrő, ami ezek bármelyikét mutatja.
+- Összekészített, de le nem könyvelt rendelés sorában „⚠️ nincs
+  könyvelve” jelzés látszik.
+
+---
+
 ## 1.42.1 — Egyszerűbb rendelés szűrők
 
 - A **Rendelések** szűrői közül kikerültek a „Nincs ellenőrizve” és a
