@@ -2086,11 +2086,8 @@ const ORDER_STATUS_LABELS = {
   pending: 'Összekészítésre vár',
   picked: 'Összekészítve',
   verified: 'Ellenőrizve',
-  not_verified: 'Nincs ellenőrizve',
   deducted: 'Készlet könyvelve',
-  not_deducted: 'Nincs könyvelve',
   kvikk: 'Van Kvikk címke',
-  unmatched: 'Ismeretlen cikkszám',
 };
 const HU_MONTHS = ['január', 'február', 'március', 'április', 'május', 'június',
   'július', 'augusztus', 'szeptember', 'október', 'november', 'december'];
