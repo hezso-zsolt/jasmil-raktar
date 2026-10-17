@@ -6,6 +6,13 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.42.1 — Egyszerűbb rendelés szűrők
+
+- A **Rendelések** szűrői közül kikerültek a „Nincs ellenőrizve” és a
+  „Nincs könyvelve” gombok, csak a pozitív szűrők maradtak.
+
+---
+
 ## 1.42.0 — Rendelések: hónap, lapozás, állapot szűrők
 
 - A **Rendelések** lista megnyitáskor az **aktuális hónap** rendeléseit

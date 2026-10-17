@@ -130,9 +130,7 @@ const ORDER_STATUS_FILTERS = {
   pending: 'o.picked_at IS NULL',
   picked: 'o.picked_at IS NOT NULL',
   verified: 'o.verified_at IS NOT NULL',
-  not_verified: 'o.verified_at IS NULL',
   deducted: 'o.stock_deducted_at IS NOT NULL',
-  not_deducted: 'o.stock_deducted_at IS NULL',
   kvikk: `EXISTS (SELECT 1 FROM kvikk_shipments s WHERE s.shoprenter_order_id = o.shoprenter_order_id
                    AND s.kvikk_tracking_number IS NOT NULL)`,
   unmatched: 'EXISTS (SELECT 1 FROM shoprenter_order_items i WHERE i.order_id = o.id AND i.product_id IS NULL)',

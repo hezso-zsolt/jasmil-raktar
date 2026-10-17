@@ -2086,9 +2086,7 @@ const ORDER_STATUS_LABELS = {
   pending: 'Összekészítésre vár',
   picked: 'Összekészítve',
   verified: 'Ellenőrizve',
-  not_verified: 'Nincs ellenőrizve',
   deducted: 'Készlet könyvelve',
-  not_deducted: 'Nincs könyvelve',
   kvikk: 'Van Kvikk címke',
   unmatched: 'Ismeretlen cikkszám',
 };
