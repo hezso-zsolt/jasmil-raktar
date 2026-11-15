@@ -70,6 +70,34 @@ function isAbandonedCartPage() {
   return false;
 }
 
+/**
+ * Törölt rendelés-e a megnyitott oldal? (Shoprenter "Törölt" állapot.)
+ * Ezeket soha nem küldjük be a leltár appba. Ugyanazokat a jeleket nézzük,
+ * mint az elhagyott kosárnál: az állapot mező szövegét, illetve egy rövid
+ * feliratot, ami pontosan "Törölt" / "Törölt rendelés" (menükön, legördülő
+ * opciókon és az állapot-előzményeken kívül).
+ */
+const DELETED_RE = /(?<![a-záéíóöőúüű])törölt(?![a-záéíóöőúüű])/i;
+const DELETED_LABEL_RE = /^törölt(\s+rendelés)?$/i;
+
+function isDeletedOrderPage() {
+  for (const el of document.querySelectorAll('[data-test-id*="status" i]')) {
+    if (el.closest(MENU_CONTAINERS)) continue;
+    const text = `${el.value || ""} ${el.getAttribute("data-test-value") || ""} ${el.textContent || ""}`;
+    if (DELETED_RE.test(text)) return true;
+  }
+
+  for (const el of document.querySelectorAll("span, div, td, h1, h2, h3, label, .v-chip")) {
+    if (el.children.length > 2) continue;
+    const text = (el.textContent || "").replace(/\s+/g, " ").trim();
+    if (!DELETED_LABEL_RE.test(text)) continue;
+    if (el.closest(MENU_CONTAINERS)) continue;
+    return true;
+  }
+
+  return false;
+}
+
 // A felhasználó a bővítmény beállításaiban kérheti, hogy az elhagyott
 // kosarak is bekerüljenek a leltár appba (alapból nem).
 async function shouldImportAbandonedCarts() {
@@ -87,6 +115,7 @@ async function shouldImportAbandonedCarts() {
 function currentPanelKey() {
   const orderId = extractOrderNumber();
   if (!orderId) return "";
+  if (isDeletedOrderPage()) return `${orderId}:torolt`;
   return isAbandonedCartPage() ? `${orderId}:kosar` : orderId;
 }
 
@@ -303,8 +332,9 @@ async function buildPanel() {
   // Megjegyezzük, melyik rendeléshez épült ez a panel, hogy a Shoprenter
   // Vue-alapú, oldalújratöltés nélküli rendelésváltásakor észrevegyük,
   // ha a panel már egy korábbi rendelés adatait mutatja (lásd init()).
-  const abandoned = isAbandonedCartPage();
-  panel.dataset.jkcOrderId = abandoned ? `${data.orderNumber}:kosar` : data.orderNumber || "";
+  panel.dataset.jkcOrderId = currentPanelKey();
+  const deleted = panel.dataset.jkcOrderId.endsWith(":torolt");
+  const abandoned = panel.dataset.jkcOrderId.endsWith(":kosar");
   const header = el("div", { class: "jkc-header" }, [
     el("span", { class: "jkc-logo", text: "JASMIL" }),
     el("span", { class: "jkc-title", text: `Kvikk Connect — #${data.orderNumber || "?"}` }),
@@ -343,8 +373,8 @@ async function buildPanel() {
   // menüpont komissiózó listáján (melyik termék melyik dobozban van).
   // Ez csak adatrögzítés, nem jár Kvikk-költséggel, ezért a háttérben fut,
   // és ha nem sikerül, az nem akadályozza a címke létrehozását.
-  // Elhagyott kosarat alapból NEM küldünk be: az nem valódi rendelés.
-  const skipImport = abandoned && !(await shouldImportAbandonedCarts());
+  // Törölt rendelést soha, elhagyott kosarat alapból NEM küldünk be.
+  const skipImport = deleted || (abandoned && !(await shouldImportAbandonedCarts()));
   if (data.items && data.items.length && !skipImport) {
     sendToBackground("IMPORT_ORDER", {
       shoprenter_order_id: data.orderNumber,
@@ -364,7 +394,14 @@ async function buildPanel() {
 
   body.innerHTML = "";
 
-  if (abandoned) {
+  if (deleted) {
+    body.appendChild(
+      el("div", {
+        class: "jkc-alert jkc-alert-warn",
+        text: "🗑️ Ez egy törölt rendelés – nem került be a leltár app Rendelések listájába. Ha korábban már bekerült, ott a Törlés gombbal eltávolíthatod.",
+      })
+    );
+  } else if (abandoned) {
     body.appendChild(
       el("div", {
         class: "jkc-alert jkc-alert-warn",
