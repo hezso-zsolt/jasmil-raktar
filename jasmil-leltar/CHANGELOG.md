@@ -6,6 +6,16 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## Bővítmény 0.9.3 — törölt rendelések kiszűrése
+
+- A Chrome-bővítmény a Shoprenterben **„Törölt”** állapotú rendeléseket
+  sem küldi be a leltár app Rendelések listájába. A Kvikk panel tetején
+  sáv jelzi, hogy törölt rendelésről van szó.
+- Ha egy rendelés még a törlése előtt bekerült, a Rendelések oldalon a
+  Törlés gombbal lehet eltávolítani.
+
+---
+
 ## 1.43.0 — Rendellenességek kiemelése
 
 - A **Rendelések** lista tetején egy sárga sáv jelzi, ha valamelyik
