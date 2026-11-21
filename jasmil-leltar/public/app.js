@@ -2921,7 +2921,10 @@ const CAL_KIND_TAG = { paid: 'tag-ok', due: 'tag-neutral', overdue: 'tag-bad', r
 const CAL_KIND_RANK = { overdue: 0, review: 1, due: 2, paid: 3 };
 
 async function loadInvoiceCalendar() {
-  const params = new URLSearchParams({ from: shiftYm(calEnd, -(CAL_MONTHS - 1)), to: calEnd });
+  // A mostani hónapnál a következőt is lekérjük: ha már van oda eső számla
+  // (pl. dec. 1-jei teljesítéssel), az is megjelenik egy külön oszlopban.
+  const showNext = calEnd === localToday().slice(0, 7);
+  const params = new URLSearchParams({ from: shiftYm(calEnd, -(CAL_MONTHS - 1)), to: showNext ? shiftYm(calEnd, 1) : calEnd });
   ['q', 'supplier_id', 'category'].forEach((k) => { if (invoiceFilter[k]) params.set(k, invoiceFilter[k]); });
   try {
     const [data, sum] = await Promise.all([
@@ -2964,6 +2967,8 @@ function fmtCompactMoney(sums) {
 function renderInvoiceCalendar() {
   const data = calData;
   const months = Array.from({ length: CAL_MONTHS }, (_, i) => shiftYm(calEnd, i - (CAL_MONTHS - 1)));
+  const nextMonth = shiftYm(calEnd, 1);
+  if (data.invoices.some((i) => i.period === nextMonth)) months.push(nextMonth);
   const label = (m) => `${m.slice(0, 4)}. ${HU_MONTHS_SHORT[Number(m.slice(5)) - 1]}`;
   document.getElementById('cal-year-label').textContent = `${label(months[0])} – ${label(months[months.length - 1])}`;
   document.getElementById('cal-now').classList.toggle('hidden', calEnd === localToday().slice(0, 7));
@@ -2988,12 +2993,12 @@ function renderInvoiceCalendar() {
   table.innerHTML = '';
   table.appendChild(el('thead', {}, el('tr', {}, [
     el('th', { class: 'pm-supplier' }, 'Szállító'),
-    ...months.map((m) => el('th', { class: m === currentMonth ? 'pm-month current' : 'pm-month' }, HU_MONTHS_SHORT[Number(m.slice(5)) - 1])),
+    ...months.map((m) => el('th', { class: m === currentMonth ? 'pm-month current' : m > currentMonth ? 'pm-month upcoming' : 'pm-month', title: m > currentMonth ? 'Következő hónap: a már beérkezett, ide tartozó számlák' : '' }, HU_MONTHS_SHORT[Number(m.slice(5)) - 1])),
     el('th', { class: 'pm-total' }, 'Kifizetve'),
   ])));
   const tbody = el('tbody');
   if (!rows.length) {
-    tbody.appendChild(el('tr', {}, el('td', { colspan: String(CAL_MONTHS + 2), class: 'hint pm-empty' }, 'Ebben az időszakban nincs a szűrésnek megfelelő számla.')));
+    tbody.appendChild(el('tr', {}, el('td', { colspan: String(months.length + 2), class: 'hint pm-empty' }, 'Ebben az időszakban nincs a szűrésnek megfelelő számla.')));
   }
   rows.forEach((g) => {
     const regularSince = regular[g.key];
@@ -3066,7 +3071,7 @@ function renderCalendarDetail(groups) {
       el('i', { class: `cal-dot ${kind}` }),
       el('div', { class: 'cal-detail-main' }, [
         el('div', { class: 'invoice-supplier' }, inv.invoice_number || 'nincs számlaszám'),
-        el('div', { class: 'invoice-due-note' }, when),
+        el('div', { class: 'invoice-due-note' }, inv.billing_month ? `${when} · kiállítva ${fmtDate(inv.issue_date)}, a hónap kézzel megadva` : `${when} · kiállítva ${fmtDate(inv.issue_date)}`),
       ]),
       el('span', { class: `tag ${CAL_KIND_TAG[kind]}` }, CAL_KIND_LABEL[kind]),
       el('span', { class: 'mono cal-detail-amt' }, fmtMoney(inv.gross_amount, inv.currency)),
@@ -3266,6 +3271,7 @@ async function openInvoiceModal(id) {
       el('option', { value: 'fizetve' }, 'Kifizetve'),
     ]),
     paid_at: input('paid_at', { type: 'date' }),
+    billing_month: input('billing_month', { type: 'month' }),
   };
   f.currency.value = v('currency') || 'HUF';
   f.note.value = v('note');
@@ -3326,6 +3332,11 @@ async function openInvoiceModal(id) {
     invoiceField('Kategória', f.category),
     invoiceField('Állapot', f.status),
     paidField,
+    el('div', { class: 'invoice-field wide' }, [
+      el('label', {}, 'Melyik hónap számlája (Havi áttekintés)'),
+      f.billing_month,
+      el('div', { class: 'hint invoice-field-hint' }, 'Üresen hagyva a teljesítés hónapja számít. Csak akkor add meg, ha a számla mégis egy másik hónapba tartozik.'),
+    ]),
     invoiceField('Megjegyzés', f.note, { wide: true }),
     datalist('invoice-supplier-list', invoiceSuppliers.map((s) => s.name)),
     datalist('invoice-category-list', invoiceCategories),
