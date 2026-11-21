@@ -322,6 +322,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   original_file_name TEXT,
   file_hash TEXT,
   extract_warnings TEXT,
+  billing_month TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

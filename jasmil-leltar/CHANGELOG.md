@@ -6,6 +6,21 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.44.2 — Havi áttekintés: újra a teljesítés hónapja számít
+
+- A **Havi áttekintés** ismét a **teljesítés hónapjához** sorolja a
+  számlákat. A kiállítás szerinti sorolás (1.44.1) összevonta az ugyanabban
+  a hónapban kiállított számlákat (pl. a Shoprenter október 2-i és október
+  30-i számláját).
+- Ha már van a következő hónapra eső számla (pl. az Opennetworks december
+  1-jei teljesítésű számlája), egy halvány, dőlt betűs „dec.” oszlopban az
+  is látszik, így nem tűnik el.
+- A számla adatlapján új mező: **„Melyik hónap számlája”**. Ritka
+  kivételnél itt kézzel másik hónapra tehető a számla; üresen hagyva a
+  teljesítés hónapja számít.
+
+---
+
 ## 1.44.1 — Havi áttekintés: kiállítás hónapja szerint
 
 - A **Havi áttekintés** a számlát mostantól a **kiállítás hónapjához**

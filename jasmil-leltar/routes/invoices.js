@@ -163,13 +163,11 @@ router.get('/', (req, res) => {
 router.get('/summary', (req, res) => res.json(summary()));
 
 // Havi áttekintés szállítónként: a megadott hónapok (from..to, YYYY-MM)
-// számlái, mindegyik a kiállítás (ha nincs, a teljesítés, végül a határidő)
-// hónapjához sorolva. Nem a teljesítés napját vesszük alapul, mert az
-// időszakos szolgáltatásoknál (telefon, áram, tárhely) a számlán szereplő
-// teljesítési dátum a törvény szerint a fizetési határidő, ami gyakran már a
-// következő hónapra esik. Alapból az aktuális és az előző öt hónap. A szállító,
-// kategória és keresés szűrő itt is érvényes, az állapot és a dátum nem.
-const PERIOD_SQL = 'substr(COALESCE(issue_date, fulfillment_date, due_date, paid_at, created_at), 1, 7)';
+// számlái, mindegyik a teljesítés (ha nincs, a kiállítás, végül a határidő)
+// hónapjához sorolva. Ha a számlánál kézzel meg van adva a hónap
+// (billing_month), az számít. Alapból az aktuális és az előző öt hónap. A
+// szállító, kategória és keresés szűrő itt is érvényes, az állapot és a dátum nem.
+const PERIOD_SQL = 'COALESCE(billing_month, substr(COALESCE(fulfillment_date, issue_date, due_date, paid_at, created_at), 1, 7))';
 router.get('/calendar', (req, res) => {
   const ym = /^\d{4}-\d{2}$/;
   const t = today();
@@ -184,11 +182,11 @@ router.get('/calendar', (req, res) => {
   const extra = sql ? `${sql.replace(/^WHERE /, '')} AND ` : '';
   const rows = db.prepare(
     `SELECT * FROM invoices WHERE ${extra}${PERIOD_SQL} BETWEEN ? AND ?
-     ORDER BY supplier_name COLLATE NOCASE, COALESCE(issue_date, fulfillment_date, due_date), id`
+     ORDER BY supplier_name COLLATE NOCASE, COALESCE(fulfillment_date, issue_date, due_date), id`
   ).all(...params, from, to).map(withComputed);
   const invoices = rows.map((r) => ({
     ...r,
-    period: (r.issue_date || r.fulfillment_date || r.due_date || r.paid_at || r.created_at).slice(0, 7),
+    period: r.billing_month || (r.fulfillment_date || r.issue_date || r.due_date || r.paid_at || r.created_at).slice(0, 7),
   }));
   // Rendszeresen (havonta) számlázó szállítók: az utolsó 12 hónapban az első
   // számlájuk óta legalább a hónapok 80%-ában (és min. 4 hónapban) volt
@@ -278,6 +276,11 @@ function cleanBody(body) {
     if (s && !DATE_RE.test(s)) throw new Error(`Hibás dátum: ${label}.`);
     return s;
   };
+  const month = (v) => {
+    const s = str(v);
+    if (s && !/^\d{4}-\d{2}$/.test(s)) throw new Error('Hibás hónap (áttekintés).');
+    return s;
+  };
   const account = (v) => {
     const s = str(v);
     if (!s) return s;
@@ -302,6 +305,7 @@ function cleanBody(body) {
     note: str(b.note),
     status: b.status,
     paid_at: date(b.paid_at, 'fizetés napja'),
+    billing_month: month(b.billing_month),
   };
 }
 
@@ -322,7 +326,7 @@ function saveInvoice(id, body) {
 
   const cols = ['supplier_id', 'supplier_name', 'supplier_tax_number', 'invoice_number', 'issue_date',
     'fulfillment_date', 'due_date', 'net_amount', 'vat_amount', 'gross_amount', 'currency', 'payment_method',
-    'category', 'bank_account', 'note', 'status', 'paid_at'];
+    'category', 'bank_account', 'note', 'status', 'paid_at', 'billing_month'];
   const values = cols.map((c) => merged[c] ?? null);
   if (current) {
     db.prepare(`UPDATE invoices SET ${cols.map((c) => `${c} = ?`).join(', ')}, extract_warnings = NULL,

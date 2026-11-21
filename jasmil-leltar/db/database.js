@@ -53,6 +53,8 @@ ensureColumn('shoprenter_orders', 'cod_amount', 'REAL');
 ensureColumn('shoprenter_orders', 'verified_at', 'TEXT');
 // Bejövő számlák: a szállító bankszámlaszáma a csoportos utalási fájlhoz.
 ensureColumn('invoices', 'bank_account', 'TEXT');
+// A Havi áttekintésben kézzel megadható hónap (YYYY-MM); üresen a kiállítás hónapja számít.
+ensureColumn('invoices', 'billing_month', 'TEXT');
 ensureColumn('suppliers', 'bank_account', 'TEXT');
 
 // Kis "polyfill", hogy a routes/ fájlokban használt better-sqlite3-stílusú
