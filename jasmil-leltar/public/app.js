@@ -2881,7 +2881,8 @@ async function loadInvoices() {
 // mutatja, hogy az adott hónap számlája ki van-e fizetve.
 
 let invoiceView = 'list';
-let calYear = localToday().slice(0, 4);
+const CAL_MONTHS = 6;
+let calEnd = localToday().slice(0, 7); // az utolsó látható hónap
 let calData = null;
 let calSelected = null; // { key, month }
 const HU_MONTHS_SHORT = ['jan.', 'febr.', 'márc.', 'ápr.', 'máj.', 'jún.', 'júl.', 'aug.', 'szept.', 'okt.', 'nov.', 'dec.'];
@@ -2901,8 +2902,14 @@ function setInvoiceView(view) {
 document.querySelectorAll('#invoice-view-toggle button').forEach((b) => {
   b.addEventListener('click', () => setInvoiceView(b.dataset.invoiceView));
 });
-document.getElementById('cal-prev').addEventListener('click', () => { calYear = String(Number(calYear) - 1); calSelected = null; loadInvoiceCalendar(); });
-document.getElementById('cal-next').addEventListener('click', () => { calYear = String(Number(calYear) + 1); calSelected = null; loadInvoiceCalendar(); });
+function shiftYm(ym, delta) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+document.getElementById('cal-prev').addEventListener('click', () => { calEnd = shiftYm(calEnd, -CAL_MONTHS); calSelected = null; loadInvoiceCalendar(); });
+document.getElementById('cal-next').addEventListener('click', () => { calEnd = shiftYm(calEnd, CAL_MONTHS); calSelected = null; loadInvoiceCalendar(); });
+document.getElementById('cal-now').addEventListener('click', () => { calEnd = localToday().slice(0, 7); calSelected = null; loadInvoiceCalendar(); });
 
 function calKind(inv) {
   if (inv.status === 'fizetve') return 'paid';
@@ -2914,7 +2921,7 @@ const CAL_KIND_TAG = { paid: 'tag-ok', due: 'tag-neutral', overdue: 'tag-bad', r
 const CAL_KIND_RANK = { overdue: 0, review: 1, due: 2, paid: 3 };
 
 async function loadInvoiceCalendar() {
-  const params = new URLSearchParams({ year: calYear });
+  const params = new URLSearchParams({ from: shiftYm(calEnd, -(CAL_MONTHS - 1)), to: calEnd });
   ['q', 'supplier_id', 'category'].forEach((k) => { if (invoiceFilter[k]) params.set(k, invoiceFilter[k]); });
   try {
     const [data, sum] = await Promise.all([
@@ -2956,8 +2963,12 @@ function fmtCompactMoney(sums) {
 
 function renderInvoiceCalendar() {
   const data = calData;
-  document.getElementById('cal-year-label').textContent = calYear;
+  const months = Array.from({ length: CAL_MONTHS }, (_, i) => shiftYm(calEnd, i - (CAL_MONTHS - 1)));
+  const label = (m) => `${m.slice(0, 4)}. ${HU_MONTHS_SHORT[Number(m.slice(5)) - 1]}`;
+  document.getElementById('cal-year-label').textContent = `${label(months[0])} – ${label(months[months.length - 1])}`;
+  document.getElementById('cal-now').classList.toggle('hidden', calEnd === localToday().slice(0, 7));
   const currentMonth = data.today.slice(0, 7);
+  const regular = data.regular_suppliers || {};
 
   // Szállítónként csoportosítás
   const groups = new Map();
@@ -2971,32 +2982,26 @@ function renderInvoiceCalendar() {
   const rows = [...groups.values()].sort((a, b) => a.name.localeCompare(b.name, 'hu'));
 
   document.getElementById('invoices-heading').innerHTML =
-    `Számlák <span class="tag tag-neutral">${rows.length} szállító, ${data.invoices.length} számla ${calYear}-ben</span>`;
+    `Számlák <span class="tag tag-neutral">${rows.length} szállító, ${data.invoices.length} számla</span>`;
 
-  const months = Array.from({ length: 12 }, (_, i) => `${calYear}-${String(i + 1).padStart(2, '0')}`);
   const table = document.getElementById('cal-matrix');
   table.innerHTML = '';
   table.appendChild(el('thead', {}, el('tr', {}, [
     el('th', { class: 'pm-supplier' }, 'Szállító'),
-    ...months.map((m, i) => el('th', { class: m === currentMonth ? 'pm-month current' : 'pm-month' }, HU_MONTHS_SHORT[i])),
+    ...months.map((m) => el('th', { class: m === currentMonth ? 'pm-month current' : 'pm-month' }, HU_MONTHS_SHORT[Number(m.slice(5)) - 1])),
     el('th', { class: 'pm-total' }, 'Kifizetve'),
   ])));
   const tbody = el('tbody');
   if (!rows.length) {
-    tbody.appendChild(el('tr', {}, el('td', { colspan: '14', class: 'hint pm-empty' }, `${calYear}-ben nincs a szűrésnek megfelelő számla.`)));
+    tbody.appendChild(el('tr', {}, el('td', { colspan: String(CAL_MONTHS + 2), class: 'hint pm-empty' }, 'Ebben az időszakban nincs a szűrésnek megfelelő számla.')));
   }
   rows.forEach((g) => {
-    const filled = months.filter((m) => g.byMonth[m]);
-    const first = filled[0];
-    // Rendszeresen (havonta) számlázó szállító: az első számlája óta a
-    // hónapok legalább 70%-ában volt számla. Csak ezeknél jelöljük a hiányt.
-    const span = first ? months.filter((m) => m >= first && m <= currentMonth).length : 0;
-    const monthly = filled.length >= 3 && span > 0 && filled.filter((m) => m <= currentMonth).length / span >= 0.7;
+    const regularSince = regular[g.key];
     const cells = months.map((m) => {
       const list = g.byMonth[m] || [];
       const isSel = calSelected && calSelected.key === g.key && calSelected.month === m;
       if (!list.length) {
-        const missing = monthly && m > first && m <= currentMonth;
+        const missing = !!regularSince && m >= regularSince && m <= currentMonth;
         return el('td', {
           class: `pm-cell ${missing ? 'missing' : 'none'}${isSel ? ' selected' : ''}`,
           title: missing ? 'Ebben a hónapban nincs számla ettől a szállítótól' : '',
