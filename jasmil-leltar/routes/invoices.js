@@ -163,10 +163,13 @@ router.get('/', (req, res) => {
 router.get('/summary', (req, res) => res.json(summary()));
 
 // Havi áttekintés szállítónként: a megadott hónapok (from..to, YYYY-MM)
-// számlái, mindegyik a teljesítés (ha nincs, a kiállítás, végül a határidő)
-// hónapjához sorolva. Alapból az aktuális és az előző öt hónap. A szállító,
+// számlái, mindegyik a kiállítás (ha nincs, a teljesítés, végül a határidő)
+// hónapjához sorolva. Nem a teljesítés napját vesszük alapul, mert az
+// időszakos szolgáltatásoknál (telefon, áram, tárhely) a számlán szereplő
+// teljesítési dátum a törvény szerint a fizetési határidő, ami gyakran már a
+// következő hónapra esik. Alapból az aktuális és az előző öt hónap. A szállító,
 // kategória és keresés szűrő itt is érvényes, az állapot és a dátum nem.
-const PERIOD_SQL = 'substr(COALESCE(fulfillment_date, issue_date, due_date, paid_at, created_at), 1, 7)';
+const PERIOD_SQL = 'substr(COALESCE(issue_date, fulfillment_date, due_date, paid_at, created_at), 1, 7)';
 router.get('/calendar', (req, res) => {
   const ym = /^\d{4}-\d{2}$/;
   const t = today();
@@ -181,11 +184,11 @@ router.get('/calendar', (req, res) => {
   const extra = sql ? `${sql.replace(/^WHERE /, '')} AND ` : '';
   const rows = db.prepare(
     `SELECT * FROM invoices WHERE ${extra}${PERIOD_SQL} BETWEEN ? AND ?
-     ORDER BY supplier_name COLLATE NOCASE, COALESCE(fulfillment_date, issue_date, due_date), id`
+     ORDER BY supplier_name COLLATE NOCASE, COALESCE(issue_date, fulfillment_date, due_date), id`
   ).all(...params, from, to).map(withComputed);
   const invoices = rows.map((r) => ({
     ...r,
-    period: (r.fulfillment_date || r.issue_date || r.due_date || r.paid_at || r.created_at).slice(0, 7),
+    period: (r.issue_date || r.fulfillment_date || r.due_date || r.paid_at || r.created_at).slice(0, 7),
   }));
   // Rendszeresen (havonta) számlázó szállítók: az utolsó 12 hónapban az első
   // számlájuk óta legalább a hónapok 80%-ában (és min. 4 hónapban) volt
