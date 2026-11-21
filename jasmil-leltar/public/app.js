@@ -3335,7 +3335,7 @@ async function openInvoiceModal(id) {
     el('div', { class: 'invoice-field wide' }, [
       el('label', {}, 'Melyik hónap számlája (Havi áttekintés)'),
       f.billing_month,
-      el('div', { class: 'hint invoice-field-hint' }, 'Üresen hagyva a teljesítés hónapja számít. Csak akkor add meg, ha a számla mégis egy másik hónapba tartozik.'),
+      el('div', { class: 'hint invoice-field-hint' }, 'Üresen hagyva a teljesítés hónapja számít (a hónap 1–3. napjára eső teljesítés az előző hónaphoz). Csak akkor add meg, ha a számla mégis egy másik hónapba tartozik.'),
     ]),
     invoiceField('Megjegyzés', f.note, { wide: true }),
     datalist('invoice-supplier-list', invoiceSuppliers.map((s) => s.name)),
