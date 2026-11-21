@@ -162,6 +162,36 @@ router.get('/', (req, res) => {
 
 router.get('/summary', (req, res) => res.json(summary()));
 
+// Naptárnézet: egy hónap kifizetett (fizetés napja szerint) és még
+// kifizetetlen (fizetési határidő szerint) számlái. A szállító, kategória és
+// keresés szűrő itt is érvényes, az állapot és a kiállítás dátuma nem.
+router.get('/calendar', (req, res) => {
+  const month = /^\d{4}-\d{2}$/.test(req.query.month || '') ? req.query.month : today().slice(0, 7);
+  const from = `${month}-01`;
+  const to = `${month}-31`;
+  const { sql, params } = buildFilter({ supplier_id: req.query.supplier_id, category: req.query.category, q: req.query.q });
+  const extra = sql ? `${sql.replace(/^WHERE /, '')} AND ` : '';
+  const rows = db.prepare(
+    `SELECT * FROM invoices WHERE ${extra}(
+       (status = 'fizetve' AND paid_at BETWEEN ? AND ?)
+       OR (status != 'fizetve' AND due_date BETWEEN ? AND ?)
+     ) ORDER BY supplier_name COLLATE NOCASE, id`
+  ).all(...params, from, to, from, to).map(withComputed);
+  const items = rows.map((r) => ({
+    ...r,
+    calendar_date: r.status === 'fizetve' ? r.paid_at.slice(0, 10) : r.due_date.slice(0, 10),
+  }));
+  const paid = items.filter((r) => r.status === 'fizetve');
+  const unpaid = items.filter((r) => r.status !== 'fizetve');
+  res.json({
+    month,
+    invoices: items,
+    paid: { count: paid.length, sums: sumsByCurrency(paid) },
+    unpaid: { count: unpaid.length, sums: sumsByCurrency(unpaid) },
+    overdue: { count: unpaid.filter((r) => r.overdue).length, sums: sumsByCurrency(unpaid.filter((r) => r.overdue)) },
+  });
+});
+
 const STATUS_LABEL = { ellenorizendo: 'Ellenőrizendő', fizetendo: 'Fizetendő', fizetve: 'Kifizetve' };
 const huNumber = (n) => (n === null || n === undefined ? '' : String(n).replace('.', ','));
 

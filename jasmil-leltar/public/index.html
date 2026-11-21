@@ -510,14 +510,20 @@
       </div>
 
       <div class="panel-header">
-        <h2 id="invoices-heading">Számlák</h2>
-        <div class="inline-form">
+        <div class="invoice-heading-row">
+          <h2 id="invoices-heading">Számlák</h2>
+          <div class="seg-toggle" id="invoice-view-toggle" role="tablist" aria-label="Nézet">
+            <button class="active" data-invoice-view="list" role="tab">Lista</button>
+            <button data-invoice-view="calendar" role="tab">Naptár</button>
+          </div>
+        </div>
+        <div class="inline-form invoice-list-only">
           <button class="btn btn-primary btn-small" id="btn-invoice-pay-helper" disabled>Utalás a kijelöltekből</button>
           <button class="btn btn-ghost btn-small" id="btn-invoice-mark-paid" disabled>Kijelöltek: kifizetve</button>
           <a class="btn btn-ghost btn-small" id="btn-invoice-export" href="/api/invoices/export">Export (Excel / CSV)</a>
         </div>
       </div>
-      <div class="filter-row" id="invoice-status-filter">
+      <div class="filter-row invoice-list-only" id="invoice-status-filter">
         <button class="chip" data-invoice-status="ellenorizendo">Ellenőrizendő</button>
         <button class="chip" data-invoice-status="fizetendo">Fizetendő</button>
         <button class="chip" data-invoice-status="lejart">Lejárt</button>
@@ -528,19 +534,41 @@
         <input type="search" id="invoice-search" placeholder="Keresés: szállító, számlaszám, megjegyzés…" />
         <select id="invoice-supplier-filter"><option value="">Minden szállító</option></select>
         <select id="invoice-category-filter"><option value="">Minden kategória</option></select>
-        <span class="hint invoice-date-label">Kiállítva:</span>
-        <input type="date" id="invoice-from" />
-        <span class="hint">—</span>
-        <input type="date" id="invoice-to" />
+        <span class="invoice-list-only invoice-date-range">
+          <span class="hint invoice-date-label">Kiállítva:</span>
+          <input type="date" id="invoice-from" />
+          <span class="hint">—</span>
+          <input type="date" id="invoice-to" />
+        </span>
         <button class="btn btn-ghost btn-small" id="btn-invoice-clear-filters">Szűrők törlése</button>
       </div>
-      <div class="table-wrap">
+      <div class="table-wrap invoice-list-only">
         <table class="table" id="invoices-table">
           <thead><tr><th class="col-check"><input type="checkbox" id="invoice-select-all" title="Az összes fizetendő kijelölése" /></th><th>Szállító</th><th>Számlaszám</th><th>Kiállítva</th><th>Határidő</th><th class="num-col">Bruttó</th><th>Kategória</th><th>Állapot</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
-      <p class="hint" id="invoices-total"></p>
+      <p class="hint invoice-list-only" id="invoices-total"></p>
+
+      <div class="invoice-calendar hidden" id="invoice-calendar">
+        <div class="cal-toolbar">
+          <div class="cal-nav">
+            <button class="btn btn-ghost btn-small" id="cal-prev" aria-label="Előző hónap">‹</button>
+            <h3 id="cal-month-label"></h3>
+            <button class="btn btn-ghost btn-small" id="cal-next" aria-label="Következő hónap">›</button>
+            <button class="btn btn-ghost btn-small" id="cal-today">Ma</button>
+          </div>
+          <div class="cal-legend">
+            <span><i class="cal-dot paid"></i>Kifizetve</span>
+            <span><i class="cal-dot due"></i>Esedékes</span>
+            <span><i class="cal-dot overdue"></i>Lejárt</span>
+            <span><i class="cal-dot review"></i>Ellenőrizendő</span>
+          </div>
+        </div>
+        <div class="cal-summary" id="cal-summary"></div>
+        <div class="cal-grid" id="cal-grid"></div>
+        <div class="cal-day-detail card" id="cal-day-detail"></div>
+      </div>
     </section>
 
     <section class="view hidden" id="view-importexport">

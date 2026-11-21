@@ -2804,6 +2804,7 @@ async function loadInvoiceSettings() {
 }
 
 async function loadInvoices() {
+  if (invoiceView === 'calendar') return loadInvoiceCalendar();
   let data;
   try {
     [data] = await Promise.all([
@@ -2873,6 +2874,175 @@ async function loadInvoices() {
     ? `A listában szereplő számlák bruttó összege: ${fmtSums(data.totals)}`
     : '';
   updateInvoiceSelectionUi();
+}
+
+// ---------- Számlák naptárnézete ----------
+// Egy hónap: a kifizetett számlák a fizetés napján, a még kifizetetlenek a
+// fizetési határidejük napján jelennek meg.
+
+let invoiceView = 'list';
+let calMonth = localToday().slice(0, 7);
+let calSelectedDay = null;
+let calData = null;
+const HU_WEEKDAYS = ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'];
+const CAL_MAX_CHIPS = 3;
+
+function setInvoiceView(view) {
+  invoiceView = view;
+  document.querySelectorAll('#invoice-view-toggle button').forEach((b) => {
+    const on = b.dataset.invoiceView === view;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  document.querySelectorAll('#view-invoices .invoice-list-only').forEach((n) => n.classList.toggle('hidden', view === 'calendar'));
+  document.getElementById('invoice-calendar').classList.toggle('hidden', view !== 'calendar');
+  loadInvoices();
+}
+
+document.querySelectorAll('#invoice-view-toggle button').forEach((b) => {
+  b.addEventListener('click', () => setInvoiceView(b.dataset.invoiceView));
+});
+
+function shiftMonth(ym, delta) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+document.getElementById('cal-prev').addEventListener('click', () => { calMonth = shiftMonth(calMonth, -1); calSelectedDay = null; loadInvoiceCalendar(); });
+document.getElementById('cal-next').addEventListener('click', () => { calMonth = shiftMonth(calMonth, 1); calSelectedDay = null; loadInvoiceCalendar(); });
+document.getElementById('cal-today').addEventListener('click', () => { calMonth = localToday().slice(0, 7); calSelectedDay = localToday(); loadInvoiceCalendar(); });
+
+function calKind(inv) {
+  if (inv.status === 'fizetve') return 'paid';
+  if (inv.status === 'ellenorizendo') return 'review';
+  return inv.overdue ? 'overdue' : 'due';
+}
+
+const CAL_KIND_LABEL = { paid: 'Kifizetve', due: 'Esedékes', overdue: 'Lejárt', review: 'Ellenőrizendő' };
+const CAL_KIND_ORDER = { overdue: 0, review: 1, due: 2, paid: 3 };
+
+async function loadInvoiceCalendar() {
+  const params = new URLSearchParams({ month: calMonth });
+  ['q', 'supplier_id', 'category'].forEach((k) => { if (invoiceFilter[k]) params.set(k, invoiceFilter[k]); });
+  try {
+    const [data, sum] = await Promise.all([
+      api('GET', `/api/invoices/calendar?${params}`),
+      api('GET', '/api/invoices/summary'),
+      loadInvoiceLookups(),
+      loadInvoiceSettings(),
+    ]);
+    calData = data;
+    renderInvoiceStats(sum);
+  } catch (err) {
+    toast(err.message, 'err');
+    return;
+  }
+  renderInvoiceCalendar();
+}
+
+function calSummaryItem(kind, label, part) {
+  return el('div', { class: `cal-sum cal-sum-${kind}` }, [
+    el('i', { class: `cal-dot ${kind}` }),
+    el('span', { class: 'cal-sum-label' }, label),
+    el('strong', {}, `${part.count} db`),
+    el('span', { class: 'mono' }, fmtSums(part.sums)),
+  ]);
+}
+
+function renderInvoiceCalendar() {
+  const data = calData;
+  const [y, m] = calMonth.split('-').map(Number);
+  document.getElementById('cal-month-label').textContent = `${y}. ${HU_MONTHS[m - 1]}`;
+  document.getElementById('invoices-heading').innerHTML =
+    `Számlák <span class="tag tag-neutral">${data.invoices.length} db ebben a hónapban</span>`;
+
+  const summary = document.getElementById('cal-summary');
+  summary.innerHTML = '';
+  summary.appendChild(calSummaryItem('paid', 'Kifizetve', data.paid));
+  summary.appendChild(calSummaryItem('due', 'Még fizetendő', data.unpaid));
+  if (data.overdue.count) summary.appendChild(calSummaryItem('overdue', 'ebből lejárt', data.overdue));
+
+  const byDay = {};
+  data.invoices.forEach((inv) => { (byDay[inv.calendar_date] = byDay[inv.calendar_date] || []).push(inv); });
+  Object.values(byDay).forEach((list) => list.sort((a, b) => CAL_KIND_ORDER[calKind(a)] - CAL_KIND_ORDER[calKind(b)]));
+
+  const today = localToday();
+  if (!calSelectedDay || calSelectedDay.slice(0, 7) !== calMonth) {
+    calSelectedDay = today.slice(0, 7) === calMonth ? today : null;
+  }
+
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+  HU_WEEKDAYS.forEach((d, i) => grid.appendChild(el('div', { class: i >= 5 ? 'cal-head weekend' : 'cal-head' }, d)));
+  const first = new Date(y, m - 1, 1);
+  const lead = (first.getDay() + 6) % 7; // hétfővel kezdődik a hét
+  const days = new Date(y, m, 0).getDate();
+  for (let i = 0; i < lead; i++) grid.appendChild(el('div', { class: 'cal-cell empty' }));
+  for (let d = 1; d <= days; d++) {
+    const iso = `${calMonth}-${String(d).padStart(2, '0')}`;
+    const list = byDay[iso] || [];
+    const weekday = (lead + d - 1) % 7;
+    const cls = ['cal-cell'];
+    if (weekday >= 5) cls.push('weekend');
+    if (iso === today) cls.push('today');
+    if (iso === calSelectedDay) cls.push('selected');
+    if (list.length) cls.push('has-items');
+    const kinds = new Set(list.map(calKind));
+    const head = el('div', { class: 'cal-day-head' }, [
+      el('span', { class: 'cal-day-num' }, String(d)),
+      el('span', { class: 'cal-dots' }, ['overdue', 'review', 'due', 'paid'].filter((k) => kinds.has(k)).map((k) => el('i', { class: `cal-dot ${k}` }))),
+    ]);
+    const chips = list.slice(0, CAL_MAX_CHIPS).map((inv) => el('button', {
+      class: `cal-chip ${calKind(inv)}`,
+      title: `${CAL_KIND_LABEL[calKind(inv)]}: ${inv.supplier_name || ''} ${inv.invoice_number || ''} — ${fmtMoney(inv.gross_amount, inv.currency)}`,
+      onclick: (e) => { e.stopPropagation(); openInvoiceModal(inv.id); },
+    }, [
+      el('span', { class: 'cal-chip-name' }, inv.supplier_name || '(ismeretlen)'),
+      el('span', { class: 'cal-chip-amt' }, fmtMoney(inv.gross_amount, inv.currency)),
+    ]));
+    if (list.length > CAL_MAX_CHIPS) chips.push(el('div', { class: 'cal-more' }, `+${list.length - CAL_MAX_CHIPS} további`));
+    grid.appendChild(el('div', {
+      class: cls.join(' '),
+      onclick: () => { calSelectedDay = iso; renderInvoiceCalendar(); },
+    }, [head, el('div', { class: 'cal-chips' }, chips)]));
+  }
+  const trail = (7 - ((lead + days) % 7)) % 7;
+  for (let i = 0; i < trail; i++) grid.appendChild(el('div', { class: 'cal-cell empty' }));
+
+  renderCalendarDayDetail(byDay);
+}
+
+function renderCalendarDayDetail(byDay) {
+  const box = document.getElementById('cal-day-detail');
+  box.innerHTML = '';
+  if (!calSelectedDay) {
+    box.appendChild(el('p', { class: 'hint' }, 'Kattints egy napra a részletekért.'));
+    return;
+  }
+  const [, mm, dd] = calSelectedDay.split('-');
+  const list = byDay[calSelectedDay] || [];
+  box.appendChild(el('h3', {}, `${HU_MONTHS[Number(mm) - 1]} ${Number(dd)}.`));
+  if (!list.length) {
+    box.appendChild(el('p', { class: 'hint' }, 'Ezen a napon nincs kifizetett vagy esedékes számla.'));
+    return;
+  }
+  list.forEach((inv) => {
+    const kind = calKind(inv);
+    const action = inv.status === 'fizetendo'
+      ? el('button', { class: 'btn btn-primary btn-small', onclick: (e) => { e.stopPropagation(); openPaymentHelper([inv.id]); } }, 'Utalás')
+      : null;
+    box.appendChild(el('div', { class: 'cal-detail-row', onclick: () => openInvoiceModal(inv.id) }, [
+      el('i', { class: `cal-dot ${kind}` }),
+      el('div', { class: 'cal-detail-main' }, [
+        el('div', { class: 'invoice-supplier' }, inv.supplier_name || '(ismeretlen szállító)'),
+        el('div', { class: 'invoice-due-note' }, [inv.invoice_number || 'nincs számlaszám', inv.category].filter(Boolean).join(' · ')),
+      ]),
+      el('span', { class: `tag ${{ paid: 'tag-ok', due: 'tag-neutral', overdue: 'tag-bad', review: 'tag-warn' }[kind]}` }, CAL_KIND_LABEL[kind]),
+      el('span', { class: 'mono cal-detail-amt' }, fmtMoney(inv.gross_amount, inv.currency)),
+      action,
+    ]));
+  });
 }
 
 // ---------- Csoportos utalás ----------

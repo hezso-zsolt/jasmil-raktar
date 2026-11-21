@@ -6,6 +6,24 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.44.0 — Számlák naptárnézete
+
+- A **Számlák** oldalon a lista mellett új **Naptár** nézet (a „Lista /
+  Naptár” váltóval). Egy hónapot mutat, napokra bontva:
+  - a **kifizetett** számlák (zöld) a fizetés napján,
+  - a még **kifizetetlenek** a fizetési határidejük napján: esedékes
+    (szürke), **lejárt** (piros), ellenőrizendő (sárga).
+- A naptár felett a hónap összesítése: mennyi lett kifizetve, mennyi
+  fizetendő még, és ebből mennyi lejárt.
+- Egy napra kattintva alatta megjelenik az aznapi számlák listája, a
+  fizetendőknél **Utalás** gombbal. Egy számlára kattintva megnyílik az
+  adatlapja.
+- A szállító, kategória és keresés szűrő a naptárban is működik.
+- Telefonon a napokban színes pöttyök jelzik a számlákat, a részletek a
+  kiválasztott nap alatt látszanak.
+
+---
+
 ## Bővítmény 0.9.3 — törölt rendelések kiszűrése
 
 - A Chrome-bővítmény a Shoprenterben **„Törölt”** állapotú rendeléseket

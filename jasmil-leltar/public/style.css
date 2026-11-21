@@ -663,6 +663,81 @@ tr.row-size-mismatch:hover td { background: var(--bad-bg); }
 .invoice-actions { text-align: right; white-space: nowrap; }
 #invoices-table th, #invoices-table td { padding-left: 10px; padding-right: 10px; }
 
+/* ---------- Számlák: Lista / Naptár váltó és naptárnézet ---------- */
+.invoice-heading-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.seg-toggle { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 3px; }
+.seg-toggle button { font-family: var(--font-ui); font-size: 12.5px; font-weight: 600; border: none; background: transparent; color: var(--ink-soft); padding: 5px 14px; border-radius: 16px; cursor: pointer; }
+.seg-toggle button:hover { color: var(--ink); }
+.seg-toggle button.active { background: var(--ink); color: white; }
+.seg-toggle button:focus-visible { outline: none; box-shadow: var(--focus); }
+.invoice-date-range { display: inline-flex; gap: 6px; align-items: center; }
+
+.invoice-calendar { margin-top: 6px; }
+.cal-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.cal-nav { display: flex; align-items: center; gap: 8px; }
+.cal-nav h3 { margin: 0 6px; font-size: 18px; font-weight: 600; min-width: 150px; text-align: center; letter-spacing: -.01em; }
+.cal-nav .btn { min-width: 34px; justify-content: center; }
+.cal-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-soft); }
+.cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.cal-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.cal-dot.paid { background: var(--ok); }
+.cal-dot.due { background: #8E958B; }
+.cal-dot.overdue { background: var(--bad); }
+.cal-dot.review { background: #E8B04B; }
+
+.cal-summary { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.cal-sum { display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 13px; box-shadow: var(--shadow); }
+.cal-sum-label { color: var(--ink-soft); }
+.cal-sum-paid { background: var(--ok-bg); border-color: #C7E6D3; }
+.cal-sum-overdue { background: var(--bad-bg); border-color: #F2C9C4; }
+
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+.cal-head { background: var(--surface-2); font-size: 11.5px; font-weight: 600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em; padding: 8px 10px; }
+.cal-head.weekend { color: #A3A99F; }
+.cal-cell { background: var(--surface); min-height: 112px; padding: 6px 7px 7px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; min-width: 0; transition: background .12s; }
+.cal-cell:hover { background: var(--surface-2); }
+.cal-cell.weekend { background: #FBFBF9; }
+.cal-cell.empty { background: var(--surface-2); cursor: default; }
+.cal-cell.selected { box-shadow: inset 0 0 0 2px var(--accent); }
+.cal-day-head { display: flex; justify-content: space-between; align-items: center; }
+.cal-day-num { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--ink-soft); width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; }
+.cal-cell.today .cal-day-num { background: var(--accent); color: white; }
+.cal-dots { display: none; gap: 3px; }
+.cal-chips { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cal-chip { display: flex; justify-content: space-between; gap: 6px; width: 100%; border: none; border-left: 3px solid; border-radius: 4px; padding: 3px 6px; font-family: var(--font-ui); font-size: 11.5px; cursor: pointer; text-align: left; min-width: 0; }
+.cal-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; min-width: 0; }
+.cal-chip-amt { font-family: var(--font-mono); white-space: nowrap; flex: none; }
+.cal-chip.paid { background: var(--ok-bg); border-color: var(--ok); color: #1F6B42; }
+.cal-chip.due { background: var(--bg); border-color: #8E958B; color: var(--ink); }
+.cal-chip.overdue { background: var(--bad-bg); border-color: var(--bad); color: #9A2B2B; }
+.cal-chip.review { background: var(--warn-bg); border-color: #E8B04B; color: #8a5a00; }
+.cal-chip:hover { filter: brightness(.96); }
+.cal-more { font-size: 11px; color: var(--ink-soft); padding-left: 6px; }
+
+.cal-day-detail { margin-top: 14px; }
+.cal-day-detail h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+.cal-day-detail .hint { margin: 0; }
+.cal-detail-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); cursor: pointer; }
+.cal-detail-row:first-of-type { border-top: none; }
+.cal-detail-row:hover { background: var(--surface-2); }
+.cal-detail-main { flex: 1; min-width: 0; }
+.cal-detail-amt { white-space: nowrap; font-weight: 600; min-width: 90px; text-align: right; }
+
+/* Keskeny kijelzőn a napokban csak színes pöttyök látszanak, a részletek
+   a kiválasztott nap alatti listában. */
+@media (max-width: 640px) {
+  .cal-cell { min-height: 54px; padding: 4px; align-items: center; gap: 2px; }
+  .cal-day-head { flex-direction: column; gap: 3px; }
+  .cal-dots { display: flex; }
+  .cal-chips { display: none; }
+  .cal-head { padding: 6px 0; text-align: center; font-size: 10.5px; }
+  .cal-nav h3 { min-width: 0; font-size: 16px; }
+  .cal-detail-row { flex-wrap: wrap; gap: 6px 10px; }
+  .cal-detail-main { flex-basis: calc(100% - 30px); }
+  .cal-detail-amt { margin-left: auto; min-width: 0; }
+  .cal-sum { flex: 1 1 100%; }
+}
+
 .pay-card { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; margin-top: 10px; }
 .pay-card.done { opacity: 0.55; }
 .pay-card-head { margin-bottom: 6px; }
