@@ -162,34 +162,22 @@ router.get('/', (req, res) => {
 
 router.get('/summary', (req, res) => res.json(summary()));
 
-// Naptárnézet: egy hónap kifizetett (fizetés napja szerint) és még
-// kifizetetlen (fizetési határidő szerint) számlái. A szállító, kategória és
-// keresés szűrő itt is érvényes, az állapot és a kiállítás dátuma nem.
+// Havi áttekintés szállítónként: egy év számlái, mindegyik a teljesítés
+// (ha nincs, a kiállítás, végül a határidő) hónapjához sorolva. A szállító,
+// kategória és keresés szűrő itt is érvényes, az állapot és a dátum nem.
 router.get('/calendar', (req, res) => {
-  const month = /^\d{4}-\d{2}$/.test(req.query.month || '') ? req.query.month : today().slice(0, 7);
-  const from = `${month}-01`;
-  const to = `${month}-31`;
+  const year = /^\d{4}$/.test(req.query.year || '') ? req.query.year : today().slice(0, 4);
   const { sql, params } = buildFilter({ supplier_id: req.query.supplier_id, category: req.query.category, q: req.query.q });
   const extra = sql ? `${sql.replace(/^WHERE /, '')} AND ` : '';
   const rows = db.prepare(
-    `SELECT * FROM invoices WHERE ${extra}(
-       (status = 'fizetve' AND paid_at BETWEEN ? AND ?)
-       OR (status != 'fizetve' AND due_date BETWEEN ? AND ?)
-     ) ORDER BY supplier_name COLLATE NOCASE, id`
-  ).all(...params, from, to, from, to).map(withComputed);
-  const items = rows.map((r) => ({
+    `SELECT * FROM invoices WHERE ${extra}substr(COALESCE(fulfillment_date, issue_date, due_date, paid_at, created_at), 1, 4) = ?
+     ORDER BY supplier_name COLLATE NOCASE, COALESCE(fulfillment_date, issue_date, due_date), id`
+  ).all(...params, year).map(withComputed);
+  const invoices = rows.map((r) => ({
     ...r,
-    calendar_date: r.status === 'fizetve' ? r.paid_at.slice(0, 10) : r.due_date.slice(0, 10),
+    period: (r.fulfillment_date || r.issue_date || r.due_date || r.paid_at || r.created_at).slice(0, 7),
   }));
-  const paid = items.filter((r) => r.status === 'fizetve');
-  const unpaid = items.filter((r) => r.status !== 'fizetve');
-  res.json({
-    month,
-    invoices: items,
-    paid: { count: paid.length, sums: sumsByCurrency(paid) },
-    unpaid: { count: unpaid.length, sums: sumsByCurrency(unpaid) },
-    overdue: { count: unpaid.filter((r) => r.overdue).length, sums: sumsByCurrency(unpaid.filter((r) => r.overdue)) },
-  });
+  res.json({ year, today: today(), invoices });
 });
 
 const STATUS_LABEL = { ellenorizendo: 'Ellenőrizendő', fizetendo: 'Fizetendő', fizetve: 'Kifizetve' };

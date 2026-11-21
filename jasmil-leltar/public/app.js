@@ -2876,16 +2876,15 @@ async function loadInvoices() {
   updateInvoiceSelectionUi();
 }
 
-// ---------- Számlák naptárnézete ----------
-// Egy hónap: a kifizetett számlák a fizetés napján, a még kifizetetlenek a
-// fizetési határidejük napján jelennek meg.
+// ---------- Számlák: havi áttekintés szállítónként ----------
+// Soronként egy szállító, oszloponként az év egy hónapja; a cella színe
+// mutatja, hogy az adott hónap számlája ki van-e fizetve.
 
 let invoiceView = 'list';
-let calMonth = localToday().slice(0, 7);
-let calSelectedDay = null;
+let calYear = localToday().slice(0, 4);
 let calData = null;
-const HU_WEEKDAYS = ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'];
-const CAL_MAX_CHIPS = 3;
+let calSelected = null; // { key, month }
+const HU_MONTHS_SHORT = ['jan.', 'febr.', 'márc.', 'ápr.', 'máj.', 'jún.', 'júl.', 'aug.', 'szept.', 'okt.', 'nov.', 'dec.'];
 
 function setInvoiceView(view) {
   invoiceView = view;
@@ -2902,28 +2901,20 @@ function setInvoiceView(view) {
 document.querySelectorAll('#invoice-view-toggle button').forEach((b) => {
   b.addEventListener('click', () => setInvoiceView(b.dataset.invoiceView));
 });
-
-function shiftMonth(ym, delta) {
-  const [y, m] = ym.split('-').map(Number);
-  const d = new Date(y, m - 1 + delta, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
-document.getElementById('cal-prev').addEventListener('click', () => { calMonth = shiftMonth(calMonth, -1); calSelectedDay = null; loadInvoiceCalendar(); });
-document.getElementById('cal-next').addEventListener('click', () => { calMonth = shiftMonth(calMonth, 1); calSelectedDay = null; loadInvoiceCalendar(); });
-document.getElementById('cal-today').addEventListener('click', () => { calMonth = localToday().slice(0, 7); calSelectedDay = localToday(); loadInvoiceCalendar(); });
+document.getElementById('cal-prev').addEventListener('click', () => { calYear = String(Number(calYear) - 1); calSelected = null; loadInvoiceCalendar(); });
+document.getElementById('cal-next').addEventListener('click', () => { calYear = String(Number(calYear) + 1); calSelected = null; loadInvoiceCalendar(); });
 
 function calKind(inv) {
   if (inv.status === 'fizetve') return 'paid';
   if (inv.status === 'ellenorizendo') return 'review';
   return inv.overdue ? 'overdue' : 'due';
 }
-
-const CAL_KIND_LABEL = { paid: 'Kifizetve', due: 'Esedékes', overdue: 'Lejárt', review: 'Ellenőrizendő' };
-const CAL_KIND_ORDER = { overdue: 0, review: 1, due: 2, paid: 3 };
+const CAL_KIND_LABEL = { paid: 'Kifizetve', due: 'Fizetendő', overdue: 'Lejárt', review: 'Ellenőrizendő' };
+const CAL_KIND_TAG = { paid: 'tag-ok', due: 'tag-neutral', overdue: 'tag-bad', review: 'tag-warn' };
+const CAL_KIND_RANK = { overdue: 0, review: 1, due: 2, paid: 3 };
 
 async function loadInvoiceCalendar() {
-  const params = new URLSearchParams({ month: calMonth });
+  const params = new URLSearchParams({ year: calYear });
   ['q', 'supplier_id', 'category'].forEach((k) => { if (invoiceFilter[k]) params.set(k, invoiceFilter[k]); });
   try {
     const [data, sum] = await Promise.all([
@@ -2941,106 +2932,142 @@ async function loadInvoiceCalendar() {
   renderInvoiceCalendar();
 }
 
-function calSummaryItem(kind, label, part) {
-  return el('div', { class: `cal-sum cal-sum-${kind}` }, [
-    el('i', { class: `cal-dot ${kind}` }),
-    el('span', { class: 'cal-sum-label' }, label),
-    el('strong', {}, `${part.count} db`),
-    el('span', { class: 'mono' }, fmtSums(part.sums)),
-  ]);
+function sumGross(list) {
+  const out = {};
+  list.forEach((i) => { out[i.currency || 'HUF'] = (out[i.currency || 'HUF'] || 0) + (i.gross_amount || 0); });
+  return out;
+}
+
+function fmtShortMoney(sums) {
+  // A cellákba rövid forma: 12 300 Ft → 12,3e; 4112 Ft → 4112
+  const entries = Object.entries(sums);
+  if (entries.length !== 1 || entries[0][0] !== 'HUF') return fmtSums(sums);
+  const n = entries[0][1];
+  return n >= 100000 ? `${Math.round(n / 1000).toLocaleString('hu-HU')}e Ft` : fmtMoney(n);
+}
+
+function fmtCompactMoney(sums) {
+  // Telefonon a keskeny cellákba: 38 420 Ft → 38e
+  const entries = Object.entries(sums);
+  if (entries.length !== 1 || entries[0][0] !== 'HUF') return entries.map(([c]) => c).join('+');
+  const n = entries[0][1];
+  return n >= 1000 ? `${Math.round(n / 1000)}e` : String(Math.round(n));
 }
 
 function renderInvoiceCalendar() {
   const data = calData;
-  const [y, m] = calMonth.split('-').map(Number);
-  document.getElementById('cal-month-label').textContent = `${y}. ${HU_MONTHS[m - 1]}`;
+  document.getElementById('cal-year-label').textContent = calYear;
+  const currentMonth = data.today.slice(0, 7);
+
+  // Szállítónként csoportosítás
+  const groups = new Map();
+  data.invoices.forEach((inv) => {
+    const key = (inv.supplier_name || '').trim().toLowerCase();
+    if (!groups.has(key)) groups.set(key, { key, name: inv.supplier_name || '(ismeretlen szállító)', byMonth: {}, all: [] });
+    const g = groups.get(key);
+    (g.byMonth[inv.period] = g.byMonth[inv.period] || []).push(inv);
+    g.all.push(inv);
+  });
+  const rows = [...groups.values()].sort((a, b) => a.name.localeCompare(b.name, 'hu'));
+
   document.getElementById('invoices-heading').innerHTML =
-    `Számlák <span class="tag tag-neutral">${data.invoices.length} db ebben a hónapban</span>`;
+    `Számlák <span class="tag tag-neutral">${rows.length} szállító, ${data.invoices.length} számla ${calYear}-ben</span>`;
 
-  const summary = document.getElementById('cal-summary');
-  summary.innerHTML = '';
-  summary.appendChild(calSummaryItem('paid', 'Kifizetve', data.paid));
-  summary.appendChild(calSummaryItem('due', 'Még fizetendő', data.unpaid));
-  if (data.overdue.count) summary.appendChild(calSummaryItem('overdue', 'ebből lejárt', data.overdue));
-
-  const byDay = {};
-  data.invoices.forEach((inv) => { (byDay[inv.calendar_date] = byDay[inv.calendar_date] || []).push(inv); });
-  Object.values(byDay).forEach((list) => list.sort((a, b) => CAL_KIND_ORDER[calKind(a)] - CAL_KIND_ORDER[calKind(b)]));
-
-  const today = localToday();
-  if (!calSelectedDay || calSelectedDay.slice(0, 7) !== calMonth) {
-    calSelectedDay = today.slice(0, 7) === calMonth ? today : null;
+  const months = Array.from({ length: 12 }, (_, i) => `${calYear}-${String(i + 1).padStart(2, '0')}`);
+  const table = document.getElementById('cal-matrix');
+  table.innerHTML = '';
+  table.appendChild(el('thead', {}, el('tr', {}, [
+    el('th', { class: 'pm-supplier' }, 'Szállító'),
+    ...months.map((m, i) => el('th', { class: m === currentMonth ? 'pm-month current' : 'pm-month' }, HU_MONTHS_SHORT[i])),
+    el('th', { class: 'pm-total' }, 'Kifizetve'),
+  ])));
+  const tbody = el('tbody');
+  if (!rows.length) {
+    tbody.appendChild(el('tr', {}, el('td', { colspan: '14', class: 'hint pm-empty' }, `${calYear}-ben nincs a szűrésnek megfelelő számla.`)));
   }
-
-  const grid = document.getElementById('cal-grid');
-  grid.innerHTML = '';
-  HU_WEEKDAYS.forEach((d, i) => grid.appendChild(el('div', { class: i >= 5 ? 'cal-head weekend' : 'cal-head' }, d)));
-  const first = new Date(y, m - 1, 1);
-  const lead = (first.getDay() + 6) % 7; // hétfővel kezdődik a hét
-  const days = new Date(y, m, 0).getDate();
-  for (let i = 0; i < lead; i++) grid.appendChild(el('div', { class: 'cal-cell empty' }));
-  for (let d = 1; d <= days; d++) {
-    const iso = `${calMonth}-${String(d).padStart(2, '0')}`;
-    const list = byDay[iso] || [];
-    const weekday = (lead + d - 1) % 7;
-    const cls = ['cal-cell'];
-    if (weekday >= 5) cls.push('weekend');
-    if (iso === today) cls.push('today');
-    if (iso === calSelectedDay) cls.push('selected');
-    if (list.length) cls.push('has-items');
-    const kinds = new Set(list.map(calKind));
-    const head = el('div', { class: 'cal-day-head' }, [
-      el('span', { class: 'cal-day-num' }, String(d)),
-      el('span', { class: 'cal-dots' }, ['overdue', 'review', 'due', 'paid'].filter((k) => kinds.has(k)).map((k) => el('i', { class: `cal-dot ${k}` }))),
-    ]);
-    const chips = list.slice(0, CAL_MAX_CHIPS).map((inv) => el('button', {
-      class: `cal-chip ${calKind(inv)}`,
-      title: `${CAL_KIND_LABEL[calKind(inv)]}: ${inv.supplier_name || ''} ${inv.invoice_number || ''} — ${fmtMoney(inv.gross_amount, inv.currency)}`,
-      onclick: (e) => { e.stopPropagation(); openInvoiceModal(inv.id); },
-    }, [
-      el('span', { class: 'cal-chip-name' }, inv.supplier_name || '(ismeretlen)'),
-      el('span', { class: 'cal-chip-amt' }, fmtMoney(inv.gross_amount, inv.currency)),
+  rows.forEach((g) => {
+    const filled = months.filter((m) => g.byMonth[m]);
+    const first = filled[0];
+    // Rendszeresen (havonta) számlázó szállító: az első számlája óta a
+    // hónapok legalább 70%-ában volt számla. Csak ezeknél jelöljük a hiányt.
+    const span = first ? months.filter((m) => m >= first && m <= currentMonth).length : 0;
+    const monthly = filled.length >= 3 && span > 0 && filled.filter((m) => m <= currentMonth).length / span >= 0.7;
+    const cells = months.map((m) => {
+      const list = g.byMonth[m] || [];
+      const isSel = calSelected && calSelected.key === g.key && calSelected.month === m;
+      if (!list.length) {
+        const missing = monthly && m > first && m <= currentMonth;
+        return el('td', {
+          class: `pm-cell ${missing ? 'missing' : 'none'}${isSel ? ' selected' : ''}`,
+          title: missing ? 'Ebben a hónapban nincs számla ettől a szállítótól' : '',
+        }, missing ? '?' : '');
+      }
+      const kind = list.map(calKind).sort((a, b) => CAL_KIND_RANK[a] - CAL_KIND_RANK[b])[0];
+      const paidCount = list.filter((i) => i.status === 'fizetve').length;
+      return el('td', {
+        class: `pm-cell ${kind}${isSel ? ' selected' : ''}`,
+        title: list.map((i) => `${i.invoice_number || '—'}: ${fmtMoney(i.gross_amount, i.currency)} — ${CAL_KIND_LABEL[calKind(i)]}`).join('\n'),
+        onclick: () => {
+          calSelected = { key: g.key, month: m };
+          renderInvoiceCalendar();
+        },
+      }, [
+        el('span', { class: 'pm-icon' }, kind === 'paid' ? '✓' : kind === 'overdue' ? '!' : kind === 'review' ? '…' : '○'),
+        el('span', { class: 'pm-amt' }, fmtShortMoney(sumGross(list))),
+        el('span', { class: 'pm-amt-compact' }, fmtCompactMoney(sumGross(list))),
+        list.length > 1 ? el('span', { class: 'pm-count' }, `${paidCount}/${list.length}`) : null,
+      ]);
+    });
+    const paidSums = sumGross(g.all.filter((i) => i.status === 'fizetve'));
+    tbody.appendChild(el('tr', {}, [
+      el('th', { class: 'pm-supplier', scope: 'row' }, [
+        el('div', { class: 'invoice-supplier' }, g.name),
+        el('div', { class: 'invoice-due-note' }, [...new Set(g.all.map((i) => i.category).filter(Boolean))].join(', ')),
+      ]),
+      ...cells,
+      el('td', { class: 'pm-total mono' }, Object.keys(paidSums).length ? fmtSums(paidSums) : '—'),
     ]));
-    if (list.length > CAL_MAX_CHIPS) chips.push(el('div', { class: 'cal-more' }, `+${list.length - CAL_MAX_CHIPS} további`));
-    grid.appendChild(el('div', {
-      class: cls.join(' '),
-      onclick: () => { calSelectedDay = iso; renderInvoiceCalendar(); },
-    }, [head, el('div', { class: 'cal-chips' }, chips)]));
+  });
+  table.appendChild(tbody);
+  // Keskeny kijelzőn görgessünk az aktuális hónaphoz
+  const wrap = table.parentElement;
+  const cur = table.querySelector('thead th.current');
+  if (cur && !calSelected && wrap.scrollWidth > wrap.clientWidth) {
+    const sticky = table.querySelector('thead .pm-supplier').offsetWidth;
+    wrap.scrollLeft = Math.max(0, cur.offsetLeft - sticky - cur.offsetWidth * 2);
   }
-  const trail = (7 - ((lead + days) % 7)) % 7;
-  for (let i = 0; i < trail; i++) grid.appendChild(el('div', { class: 'cal-cell empty' }));
-
-  renderCalendarDayDetail(byDay);
+  renderCalendarDetail(groups);
 }
 
-function renderCalendarDayDetail(byDay) {
+function renderCalendarDetail(groups) {
   const box = document.getElementById('cal-day-detail');
   box.innerHTML = '';
-  if (!calSelectedDay) {
-    box.appendChild(el('p', { class: 'hint' }, 'Kattints egy napra a részletekért.'));
-    return;
-  }
-  const [, mm, dd] = calSelectedDay.split('-');
-  const list = byDay[calSelectedDay] || [];
-  box.appendChild(el('h3', {}, `${HU_MONTHS[Number(mm) - 1]} ${Number(dd)}.`));
+  const g = calSelected && groups.get(calSelected.key);
+  box.classList.toggle('hidden', !g);
+  if (!g) return;
+  const [y, mm] = calSelected.month.split('-');
+  const list = g.byMonth[calSelected.month] || [];
+  box.appendChild(el('h3', {}, `${g.name} — ${y}. ${HU_MONTHS[Number(mm) - 1]}`));
   if (!list.length) {
-    box.appendChild(el('p', { class: 'hint' }, 'Ezen a napon nincs kifizetett vagy esedékes számla.'));
+    box.appendChild(el('p', { class: 'hint' }, 'Erre a hónapra nincs rögzített számla ettől a szállítótól.'));
     return;
   }
   list.forEach((inv) => {
     const kind = calKind(inv);
-    const action = inv.status === 'fizetendo'
-      ? el('button', { class: 'btn btn-primary btn-small', onclick: (e) => { e.stopPropagation(); openPaymentHelper([inv.id]); } }, 'Utalás')
-      : null;
+    const when = inv.status === 'fizetve'
+      ? `kifizetve ${fmtDate(inv.paid_at)}`
+      : inv.due_date ? `határidő ${fmtDate(inv.due_date)}` : 'nincs határidő';
     box.appendChild(el('div', { class: 'cal-detail-row', onclick: () => openInvoiceModal(inv.id) }, [
       el('i', { class: `cal-dot ${kind}` }),
       el('div', { class: 'cal-detail-main' }, [
-        el('div', { class: 'invoice-supplier' }, inv.supplier_name || '(ismeretlen szállító)'),
-        el('div', { class: 'invoice-due-note' }, [inv.invoice_number || 'nincs számlaszám', inv.category].filter(Boolean).join(' · ')),
+        el('div', { class: 'invoice-supplier' }, inv.invoice_number || 'nincs számlaszám'),
+        el('div', { class: 'invoice-due-note' }, when),
       ]),
-      el('span', { class: `tag ${{ paid: 'tag-ok', due: 'tag-neutral', overdue: 'tag-bad', review: 'tag-warn' }[kind]}` }, CAL_KIND_LABEL[kind]),
+      el('span', { class: `tag ${CAL_KIND_TAG[kind]}` }, CAL_KIND_LABEL[kind]),
       el('span', { class: 'mono cal-detail-amt' }, fmtMoney(inv.gross_amount, inv.currency)),
-      action,
+      inv.status === 'fizetendo'
+        ? el('button', { class: 'btn btn-primary btn-small', onclick: (e) => { e.stopPropagation(); openPaymentHelper([inv.id]); } }, 'Utalás')
+        : null,
     ]));
   });
 }

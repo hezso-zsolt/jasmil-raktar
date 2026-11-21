@@ -6,21 +6,25 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
-## 1.44.0 — Számlák naptárnézete
+## 1.44.0 — Számlák: havi áttekintés szállítónként
 
-- A **Számlák** oldalon a lista mellett új **Naptár** nézet (a „Lista /
-  Naptár” váltóval). Egy hónapot mutat, napokra bontva:
-  - a **kifizetett** számlák (zöld) a fizetés napján,
-  - a még **kifizetetlenek** a fizetési határidejük napján: esedékes
-    (szürke), **lejárt** (piros), ellenőrizendő (sárga).
-- A naptár felett a hónap összesítése: mennyi lett kifizetve, mennyi
-  fizetendő még, és ebből mennyi lejárt.
-- Egy napra kattintva alatta megjelenik az aznapi számlák listája, a
-  fizetendőknél **Utalás** gombbal. Egy számlára kattintva megnyílik az
-  adatlapja.
-- A szállító, kategória és keresés szűrő a naptárban is működik.
-- Telefonon a napokban színes pöttyök jelzik a számlákat, a részletek a
-  kiválasztott nap alatt látszanak.
+- A **Számlák** oldalon a lista mellett új **Havi áttekintés** nézet (a
+  „Lista / Havi áttekintés” váltóval). Soronként egy szállító /
+  szolgáltató, oszloponként az év egy hónapja, így egy pillantással
+  látszik, melyik hónap van kifizetve:
+  - ✓ zöld: kifizetve, ○ szürke: fizetendő, ! piros: lejárt,
+    … sárga: ellenőrizendő.
+  - A számla a **teljesítés hónapjánál** szerepel (ha az nincs megadva,
+    a kiállításénál).
+  - A havonta számlázó szállítóknál (pl. telefon, áram, Shoprenter) a
+    hiányzó hónap **„?”** jelet kap, így feltűnik, ha egy számla nem jött
+    meg vagy nincs rögzítve.
+  - A sor végén a szállítónak az évben kifizetett összeg látszik.
+- Egy cellára kattintva alatta megjelennek a hónap számlái (kifizetés
+  napja vagy határidő), a fizetendőknél **Utalás** gombbal.
+- A ‹ › gombokkal lehet évet váltani; a szállító, kategória és keresés
+  szűrő itt is működik.
+- Telefonon a táblázat oldalra görgethető, a szállító neve a helyén marad.
 
 ---
 

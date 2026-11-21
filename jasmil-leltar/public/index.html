@@ -514,7 +514,7 @@
           <h2 id="invoices-heading">Számlák</h2>
           <div class="seg-toggle" id="invoice-view-toggle" role="tablist" aria-label="Nézet">
             <button class="active" data-invoice-view="list" role="tab">Lista</button>
-            <button data-invoice-view="calendar" role="tab">Naptár</button>
+            <button data-invoice-view="calendar" role="tab">Havi áttekintés</button>
           </div>
         </div>
         <div class="inline-form invoice-list-only">
@@ -553,21 +553,21 @@
       <div class="invoice-calendar hidden" id="invoice-calendar">
         <div class="cal-toolbar">
           <div class="cal-nav">
-            <button class="btn btn-ghost btn-small" id="cal-prev" aria-label="Előző hónap">‹</button>
-            <h3 id="cal-month-label"></h3>
-            <button class="btn btn-ghost btn-small" id="cal-next" aria-label="Következő hónap">›</button>
-            <button class="btn btn-ghost btn-small" id="cal-today">Ma</button>
+            <button class="btn btn-ghost btn-small" id="cal-prev" aria-label="Előző év">‹</button>
+            <h3 id="cal-year-label"></h3>
+            <button class="btn btn-ghost btn-small" id="cal-next" aria-label="Következő év">›</button>
           </div>
           <div class="cal-legend">
             <span><i class="cal-dot paid"></i>Kifizetve</span>
-            <span><i class="cal-dot due"></i>Esedékes</span>
+            <span><i class="cal-dot due"></i>Fizetendő</span>
             <span><i class="cal-dot overdue"></i>Lejárt</span>
             <span><i class="cal-dot review"></i>Ellenőrizendő</span>
+            <span><i class="cal-dot missing"></i>Nincs számla</span>
           </div>
         </div>
-        <div class="cal-summary" id="cal-summary"></div>
-        <div class="cal-grid" id="cal-grid"></div>
-        <div class="cal-day-detail card" id="cal-day-detail"></div>
+        <p class="hint cal-hint">Minden szállító egy sor, a számla a <strong>teljesítés hónapjánál</strong> szerepel (ha az nincs megadva, a kiállításénál). Kattints egy cellára a részletekért.</p>
+        <div class="matrix-wrap"><table class="pay-matrix" id="cal-matrix"></table></div>
+        <div class="cal-day-detail card hidden" id="cal-day-detail"></div>
       </div>
     </section>
 
