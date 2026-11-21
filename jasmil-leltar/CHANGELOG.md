@@ -6,6 +6,17 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.44.1 — Havi áttekintés: kiállítás hónapja szerint
+
+- A **Havi áttekintés** a számlát mostantól a **kiállítás hónapjához**
+  sorolja (korábban a teljesítéséhez). A telefon-, áram- és más időszakos
+  számláknál a teljesítés napja a fizetési határidő, ami gyakran már a
+  következő hónapra esik, így pl. egy november végén kiállított,
+  december 1-jei határidejű számla eddig a decemberi oszlopba került, és
+  nem látszott.
+
+---
+
 ## 1.44.0 — Számlák: havi áttekintés szállítónként
 
 - A **Számlák** oldalon a lista mellett új **Havi áttekintés** nézet (a
