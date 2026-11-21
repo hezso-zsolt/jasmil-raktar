@@ -6,6 +6,18 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.44.3 — Havi áttekintés: hónap eleji teljesítés az előző hónaphoz
+
+- A **Havi áttekintés** továbbra is a teljesítés hónapja szerint sorol, de
+  ha a teljesítés egy hónap **1–3. napjára** esik, a számla az **előző
+  hónaphoz** kerül. Így pl. az Opennetworks december 1-jei teljesítésű
+  (novemberi) számlája a novemberi oszlopban látszik, a Shoprenter október
+  10-i és november 7-i számlája pedig marad októberben és novemberben.
+- A „Melyik hónap számlája” mezővel egy-egy kivételnél továbbra is kézzel
+  megadható a hónap.
+
+---
+
 ## 1.44.2 — Havi áttekintés: újra a teljesítés hónapja számít
 
 - A **Havi áttekintés** ismét a **teljesítés hónapjához** sorolja a
