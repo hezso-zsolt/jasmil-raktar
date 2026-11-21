@@ -162,6 +162,52 @@ router.get('/', (req, res) => {
 
 router.get('/summary', (req, res) => res.json(summary()));
 
+// Havi áttekintés szállítónként: a megadott hónapok (from..to, YYYY-MM)
+// számlái, mindegyik a teljesítés (ha nincs, a kiállítás, végül a határidő)
+// hónapjához sorolva. Alapból az aktuális és az előző öt hónap. A szállító,
+// kategória és keresés szűrő itt is érvényes, az állapot és a dátum nem.
+const PERIOD_SQL = 'substr(COALESCE(fulfillment_date, issue_date, due_date, paid_at, created_at), 1, 7)';
+router.get('/calendar', (req, res) => {
+  const ym = /^\d{4}-\d{2}$/;
+  const t = today();
+  const shift = (m, d) => {
+    const [y, mo] = m.split('-').map(Number);
+    const x = new Date(y, mo - 1 + d, 1);
+    return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}`;
+  };
+  const to = ym.test(req.query.to || '') ? req.query.to : t.slice(0, 7);
+  const from = ym.test(req.query.from || '') && req.query.from <= to ? req.query.from : shift(to, -5);
+  const { sql, params } = buildFilter({ supplier_id: req.query.supplier_id, category: req.query.category, q: req.query.q });
+  const extra = sql ? `${sql.replace(/^WHERE /, '')} AND ` : '';
+  const rows = db.prepare(
+    `SELECT * FROM invoices WHERE ${extra}${PERIOD_SQL} BETWEEN ? AND ?
+     ORDER BY supplier_name COLLATE NOCASE, COALESCE(fulfillment_date, issue_date, due_date), id`
+  ).all(...params, from, to).map(withComputed);
+  const invoices = rows.map((r) => ({
+    ...r,
+    period: (r.fulfillment_date || r.issue_date || r.due_date || r.paid_at || r.created_at).slice(0, 7),
+  }));
+  // Rendszeresen (havonta) számlázó szállítók: az utolsó 12 hónapban az első
+  // számlájuk óta legalább a hónapok 80%-ában (és min. 4 hónapban) volt
+  // számlájuk. Csak ezeknél jelöljük a kimaradt hónapot.
+  const histTo = to < t.slice(0, 7) ? to : t.slice(0, 7);
+  const histFrom = shift(histTo, -11);
+  const hist = db.prepare(
+    `SELECT LOWER(TRIM(supplier_name)) AS k, ${PERIOD_SQL} AS p FROM invoices
+     WHERE supplier_name IS NOT NULL AND ${PERIOD_SQL} BETWEEN ? AND ? GROUP BY k, p`
+  ).all(histFrom, histTo);
+  const bySup = {};
+  hist.forEach((r) => { (bySup[r.k] = bySup[r.k] || []).push(r.p); });
+  const regular = Object.entries(bySup).filter(([, ps]) => {
+    const first = ps.sort()[0];
+    let span = 0;
+    for (let m = first; m <= histTo; m = shift(m, 1)) span++;
+    return ps.length >= 4 && ps.length / span >= 0.8;
+  });
+  // szállító → az első számlás hónapja (előtte nem jelzünk hiányt)
+  res.json({ from, to, today: t, invoices, regular_suppliers: Object.fromEntries(regular.map(([k, ps]) => [k, ps[0]])) });
+});
+
 const STATUS_LABEL = { ellenorizendo: 'Ellenőrizendő', fizetendo: 'Fizetendő', fizetve: 'Kifizetve' };
 const huNumber = (n) => (n === null || n === undefined ? '' : String(n).replace('.', ','));
 

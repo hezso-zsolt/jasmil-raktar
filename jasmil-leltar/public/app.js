@@ -2804,6 +2804,7 @@ async function loadInvoiceSettings() {
 }
 
 async function loadInvoices() {
+  if (invoiceView === 'calendar') return loadInvoiceCalendar();
   let data;
   try {
     [data] = await Promise.all([
@@ -2873,6 +2874,207 @@ async function loadInvoices() {
     ? `A listában szereplő számlák bruttó összege: ${fmtSums(data.totals)}`
     : '';
   updateInvoiceSelectionUi();
+}
+
+// ---------- Számlák: havi áttekintés szállítónként ----------
+// Soronként egy szállító, oszloponként az év egy hónapja; a cella színe
+// mutatja, hogy az adott hónap számlája ki van-e fizetve.
+
+let invoiceView = 'list';
+const CAL_MONTHS = 6;
+let calEnd = localToday().slice(0, 7); // az utolsó látható hónap
+let calData = null;
+let calSelected = null; // { key, month }
+const HU_MONTHS_SHORT = ['jan.', 'febr.', 'márc.', 'ápr.', 'máj.', 'jún.', 'júl.', 'aug.', 'szept.', 'okt.', 'nov.', 'dec.'];
+
+function setInvoiceView(view) {
+  invoiceView = view;
+  document.querySelectorAll('#invoice-view-toggle button').forEach((b) => {
+    const on = b.dataset.invoiceView === view;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  document.querySelectorAll('#view-invoices .invoice-list-only').forEach((n) => n.classList.toggle('hidden', view === 'calendar'));
+  document.getElementById('invoice-calendar').classList.toggle('hidden', view !== 'calendar');
+  loadInvoices();
+}
+
+document.querySelectorAll('#invoice-view-toggle button').forEach((b) => {
+  b.addEventListener('click', () => setInvoiceView(b.dataset.invoiceView));
+});
+function shiftYm(ym, delta) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+document.getElementById('cal-prev').addEventListener('click', () => { calEnd = shiftYm(calEnd, -CAL_MONTHS); calSelected = null; loadInvoiceCalendar(); });
+document.getElementById('cal-next').addEventListener('click', () => { calEnd = shiftYm(calEnd, CAL_MONTHS); calSelected = null; loadInvoiceCalendar(); });
+document.getElementById('cal-now').addEventListener('click', () => { calEnd = localToday().slice(0, 7); calSelected = null; loadInvoiceCalendar(); });
+
+function calKind(inv) {
+  if (inv.status === 'fizetve') return 'paid';
+  if (inv.status === 'ellenorizendo') return 'review';
+  return inv.overdue ? 'overdue' : 'due';
+}
+const CAL_KIND_LABEL = { paid: 'Kifizetve', due: 'Fizetendő', overdue: 'Lejárt', review: 'Ellenőrizendő' };
+const CAL_KIND_TAG = { paid: 'tag-ok', due: 'tag-neutral', overdue: 'tag-bad', review: 'tag-warn' };
+const CAL_KIND_RANK = { overdue: 0, review: 1, due: 2, paid: 3 };
+
+async function loadInvoiceCalendar() {
+  const params = new URLSearchParams({ from: shiftYm(calEnd, -(CAL_MONTHS - 1)), to: calEnd });
+  ['q', 'supplier_id', 'category'].forEach((k) => { if (invoiceFilter[k]) params.set(k, invoiceFilter[k]); });
+  try {
+    const [data, sum] = await Promise.all([
+      api('GET', `/api/invoices/calendar?${params}`),
+      api('GET', '/api/invoices/summary'),
+      loadInvoiceLookups(),
+      loadInvoiceSettings(),
+    ]);
+    calData = data;
+    renderInvoiceStats(sum);
+  } catch (err) {
+    toast(err.message, 'err');
+    return;
+  }
+  renderInvoiceCalendar();
+}
+
+function sumGross(list) {
+  const out = {};
+  list.forEach((i) => { out[i.currency || 'HUF'] = (out[i.currency || 'HUF'] || 0) + (i.gross_amount || 0); });
+  return out;
+}
+
+function fmtShortMoney(sums) {
+  // A cellákba rövid forma: 12 300 Ft → 12,3e; 4112 Ft → 4112
+  const entries = Object.entries(sums);
+  if (entries.length !== 1 || entries[0][0] !== 'HUF') return fmtSums(sums);
+  const n = entries[0][1];
+  return n >= 100000 ? `${Math.round(n / 1000).toLocaleString('hu-HU')}e Ft` : fmtMoney(n);
+}
+
+function fmtCompactMoney(sums) {
+  // Telefonon a keskeny cellákba: 38 420 Ft → 38e
+  const entries = Object.entries(sums);
+  if (entries.length !== 1 || entries[0][0] !== 'HUF') return entries.map(([c]) => c).join('+');
+  const n = entries[0][1];
+  return n >= 1000 ? `${Math.round(n / 1000)}e` : String(Math.round(n));
+}
+
+function renderInvoiceCalendar() {
+  const data = calData;
+  const months = Array.from({ length: CAL_MONTHS }, (_, i) => shiftYm(calEnd, i - (CAL_MONTHS - 1)));
+  const label = (m) => `${m.slice(0, 4)}. ${HU_MONTHS_SHORT[Number(m.slice(5)) - 1]}`;
+  document.getElementById('cal-year-label').textContent = `${label(months[0])} – ${label(months[months.length - 1])}`;
+  document.getElementById('cal-now').classList.toggle('hidden', calEnd === localToday().slice(0, 7));
+  const currentMonth = data.today.slice(0, 7);
+  const regular = data.regular_suppliers || {};
+
+  // Szállítónként csoportosítás
+  const groups = new Map();
+  data.invoices.forEach((inv) => {
+    const key = (inv.supplier_name || '').trim().toLowerCase();
+    if (!groups.has(key)) groups.set(key, { key, name: inv.supplier_name || '(ismeretlen szállító)', byMonth: {}, all: [] });
+    const g = groups.get(key);
+    (g.byMonth[inv.period] = g.byMonth[inv.period] || []).push(inv);
+    g.all.push(inv);
+  });
+  const rows = [...groups.values()].sort((a, b) => a.name.localeCompare(b.name, 'hu'));
+
+  document.getElementById('invoices-heading').innerHTML =
+    `Számlák <span class="tag tag-neutral">${rows.length} szállító, ${data.invoices.length} számla</span>`;
+
+  const table = document.getElementById('cal-matrix');
+  table.innerHTML = '';
+  table.appendChild(el('thead', {}, el('tr', {}, [
+    el('th', { class: 'pm-supplier' }, 'Szállító'),
+    ...months.map((m) => el('th', { class: m === currentMonth ? 'pm-month current' : 'pm-month' }, HU_MONTHS_SHORT[Number(m.slice(5)) - 1])),
+    el('th', { class: 'pm-total' }, 'Kifizetve'),
+  ])));
+  const tbody = el('tbody');
+  if (!rows.length) {
+    tbody.appendChild(el('tr', {}, el('td', { colspan: String(CAL_MONTHS + 2), class: 'hint pm-empty' }, 'Ebben az időszakban nincs a szűrésnek megfelelő számla.')));
+  }
+  rows.forEach((g) => {
+    const regularSince = regular[g.key];
+    const cells = months.map((m) => {
+      const list = g.byMonth[m] || [];
+      const isSel = calSelected && calSelected.key === g.key && calSelected.month === m;
+      if (!list.length) {
+        const missing = !!regularSince && m >= regularSince && m <= currentMonth;
+        return el('td', {
+          class: `pm-cell ${missing ? 'missing' : 'none'}${isSel ? ' selected' : ''}`,
+          title: missing ? 'Ebben a hónapban nincs számla ettől a szállítótól' : '',
+        }, missing ? '?' : '');
+      }
+      const kind = list.map(calKind).sort((a, b) => CAL_KIND_RANK[a] - CAL_KIND_RANK[b])[0];
+      const paidCount = list.filter((i) => i.status === 'fizetve').length;
+      return el('td', {
+        class: `pm-cell ${kind}${isSel ? ' selected' : ''}`,
+        title: list.map((i) => `${i.invoice_number || '—'}: ${fmtMoney(i.gross_amount, i.currency)} — ${CAL_KIND_LABEL[calKind(i)]}`).join('\n'),
+        onclick: () => {
+          calSelected = { key: g.key, month: m };
+          renderInvoiceCalendar();
+        },
+      }, [
+        el('span', { class: 'pm-icon' }, kind === 'paid' ? '✓' : kind === 'overdue' ? '!' : kind === 'review' ? '…' : '○'),
+        el('span', { class: 'pm-amt' }, fmtShortMoney(sumGross(list))),
+        el('span', { class: 'pm-amt-compact' }, fmtCompactMoney(sumGross(list))),
+        list.length > 1 ? el('span', { class: 'pm-count' }, `${paidCount}/${list.length}`) : null,
+      ]);
+    });
+    const paidSums = sumGross(g.all.filter((i) => i.status === 'fizetve'));
+    tbody.appendChild(el('tr', {}, [
+      el('th', { class: 'pm-supplier', scope: 'row' }, [
+        el('div', { class: 'invoice-supplier' }, g.name),
+        el('div', { class: 'invoice-due-note' }, [...new Set(g.all.map((i) => i.category).filter(Boolean))].join(', ')),
+      ]),
+      ...cells,
+      el('td', { class: 'pm-total mono' }, Object.keys(paidSums).length ? fmtSums(paidSums) : '—'),
+    ]));
+  });
+  table.appendChild(tbody);
+  // Keskeny kijelzőn görgessünk az aktuális hónaphoz
+  const wrap = table.parentElement;
+  const cur = table.querySelector('thead th.current');
+  if (cur && !calSelected && wrap.scrollWidth > wrap.clientWidth) {
+    const sticky = table.querySelector('thead .pm-supplier').offsetWidth;
+    wrap.scrollLeft = Math.max(0, cur.offsetLeft - sticky - cur.offsetWidth * 2);
+  }
+  renderCalendarDetail(groups);
+}
+
+function renderCalendarDetail(groups) {
+  const box = document.getElementById('cal-day-detail');
+  box.innerHTML = '';
+  const g = calSelected && groups.get(calSelected.key);
+  box.classList.toggle('hidden', !g);
+  if (!g) return;
+  const [y, mm] = calSelected.month.split('-');
+  const list = g.byMonth[calSelected.month] || [];
+  box.appendChild(el('h3', {}, `${g.name} — ${y}. ${HU_MONTHS[Number(mm) - 1]}`));
+  if (!list.length) {
+    box.appendChild(el('p', { class: 'hint' }, 'Erre a hónapra nincs rögzített számla ettől a szállítótól.'));
+    return;
+  }
+  list.forEach((inv) => {
+    const kind = calKind(inv);
+    const when = inv.status === 'fizetve'
+      ? `kifizetve ${fmtDate(inv.paid_at)}`
+      : inv.due_date ? `határidő ${fmtDate(inv.due_date)}` : 'nincs határidő';
+    box.appendChild(el('div', { class: 'cal-detail-row', onclick: () => openInvoiceModal(inv.id) }, [
+      el('i', { class: `cal-dot ${kind}` }),
+      el('div', { class: 'cal-detail-main' }, [
+        el('div', { class: 'invoice-supplier' }, inv.invoice_number || 'nincs számlaszám'),
+        el('div', { class: 'invoice-due-note' }, when),
+      ]),
+      el('span', { class: `tag ${CAL_KIND_TAG[kind]}` }, CAL_KIND_LABEL[kind]),
+      el('span', { class: 'mono cal-detail-amt' }, fmtMoney(inv.gross_amount, inv.currency)),
+      inv.status === 'fizetendo'
+        ? el('button', { class: 'btn btn-primary btn-small', onclick: (e) => { e.stopPropagation(); openPaymentHelper([inv.id]); } }, 'Utalás')
+        : null,
+    ]));
+  });
 }
 
 // ---------- Csoportos utalás ----------

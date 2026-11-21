@@ -6,6 +6,29 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.44.0 — Számlák: havi áttekintés szállítónként
+
+- A **Számlák** oldalon a lista mellett új **Havi áttekintés** nézet (a
+  „Lista / Havi áttekintés” váltóval). Soronként egy szállító /
+  szolgáltató, oszloponként az **utolsó hat hónap** egy-egy hónapja, így egy pillantással
+  látszik, melyik hónap van kifizetve:
+  - ✓ zöld: kifizetve, ○ szürke: fizetendő, ! piros: lejárt,
+    … sárga: ellenőrizendő.
+  - A számla a **teljesítés hónapjánál** szerepel (ha az nincs megadva,
+    a kiállításénál).
+  - A havonta számlázó szállítóknál (pl. telefon, áram, Shoprenter: az
+    elmúlt egy évben szinte minden hónapban volt számlájuk) a hiányzó hónap **„?”** jelet kap, így feltűnik, ha egy számla nem jött
+    meg vagy nincs rögzítve.
+  - A sor végén a szállítónak a látható hat hónapban kifizetett összeg
+    látszik.
+- Egy cellára kattintva alatta megjelennek a hónap számlái (kifizetés
+  napja vagy határidő), a fizetendőknél **Utalás** gombbal.
+- A ‹ › gombokkal hat hónappal korábbra / későbbre lehet lapozni; a szállító, kategória és keresés
+  szűrő itt is működik.
+- Telefonon a táblázat oldalra görgethető, a szállító neve a helyén marad.
+
+---
+
 ## Bővítmény 0.9.3 — törölt rendelések kiszűrése
 
 - A Chrome-bővítmény a Shoprenterben **„Törölt”** állapotú rendeléseket
