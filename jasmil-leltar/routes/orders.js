@@ -154,6 +154,9 @@ const ORDER_MONTH_SQL = `strftime('%Y-%m', o.imported_at, 'localtime')`;
  *           counts (állapotonként, a kiválasztott hónapra), months, pending_total }
  * A pending_total az összes hónap összekészítésre váró rendelése (menü jelvény),
  * az issue_totals pedig rendellenesség-típusonként az összes hónap darabszáma.
+ * Sorrend: előbb az összekészítésre várók, azon belül a Shoprenter
+ * rendelésazonosító szerint csökkenően (a legújabb rendelés elöl), nem a
+ * beolvasás ideje szerint.
  */
 router.get('/', (req, res) => {
   const currentMonth = db.prepare(`SELECT strftime('%Y-%m', 'now', 'localtime') AS m`).get().m;
@@ -186,7 +189,8 @@ router.get('/', (req, res) => {
          (SELECT COUNT(*) FROM order_verify_scans v WHERE v.order_id = o.id) AS verify_scan_count
        FROM shoprenter_orders o
        WHERE ${monthWhere} AND ${ORDER_STATUS_FILTERS[status]}
-       ORDER BY (o.picked_at IS NOT NULL), o.imported_at DESC, o.id DESC
+       ORDER BY (o.picked_at IS NOT NULL),
+         CAST(o.shoprenter_order_id AS INTEGER) DESC, o.shoprenter_order_id DESC, o.id DESC
        LIMIT ? OFFSET ?`
     )
     .all(...monthParams, pageSize, (page - 1) * pageSize);

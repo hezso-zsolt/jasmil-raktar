@@ -6,6 +6,17 @@ oldali sávjában (a "Jasmil" felirat alatt) is megjelenik.
 
 ---
 
+## 1.44.4 — Rendelések sorrendje azonosító szerint
+
+- A **Rendelések** lista mostantól a **Shoprenter rendelésazonosító**
+  szerint csökkenő sorrendben mutatja a rendeléseket (a legújabb elöl),
+  nem aszerint, hogy mikor kerültek át a Shoprenterből. Így akkor is jó a
+  sorrend, ha a rendeléseket nem sorban olvassuk be.
+- Az összekészítésre váró rendelések továbbra is a lista elején vannak, az
+  összekészítettek utánuk jönnek, mindkét csoport azonosító szerint rendezve.
+
+---
+
 ## 1.44.3 — Havi áttekintés: hónap eleji teljesítés az előző hónaphoz
 
 - A **Havi áttekintés** továbbra is a teljesítés hónapja szerint sorol, de
